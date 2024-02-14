@@ -1,1 +1,0 @@
-From the Vizgen website for MERFISH Mouse Brain Receptor Map data release (https://info.vizgen.com/mouse-brain-map)

@@ -6,7 +6,7 @@ import nrrd
 import numpy as np
 import os
 from scipy.ndimage import rotate
-
+from STalign import STalign
 
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
@@ -78,18 +78,31 @@ class Atlas():
 
         # file opening based on filetype
         if filetype == 'nii':
+
+            nii_img = nib.load(img_list[0])
+            
+            #setting pixdim in microns
+            if nii_img.header['xyzt_units'] < 1 or nii_img.header['xyzt_units'] > 3:
+                raise Exception("Error: atlas not well formatted")
+            pix_multi = 1000**(3-nii_img.header['xyzt_units'])
+            dxA = np.roll(nii_img.header['pixdim'][1:4],2)*pix_multi
+
+            # loading img data
             self.__img = nib.load(img_list[0]).get_fdata()
             self.__img = np.flip(np.transpose(self.__img, (1,2,0)), axis=(0,1))
-            
+            #loading segmentation data
             self.__labels = nib.load(img_list[1]).get_fdata()
             self.__labels = np.flip(np.transpose(self.__img, (1,2,0)), axis=(0,1))
             # TODO: smth to do with the dxA, nxA, other stuff like that
         if filetype == 'nrrd':
             self.__img,_ = nrrd.read(img_list[0])
-            self.__labels,_ = nrrd.read(img_list[1])
+            self.__labels,hdr = nrrd.read(img_list[1])
 
-        
+            dxA = np.diag(hdr['space directions'])
+
         self.curr_slice = int(self.__img.shape[0]/2)
+        self.xA = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(self.__img.shape,dxA)]
+        
         
         self.display()
         self.load_btn.pack_forget()
@@ -100,22 +113,22 @@ class Atlas():
     '''
     def display(self):
         # rotation scale
-        self.rot_scale = tk.Scale(self.frame, from_=180, to=-180,
+        self.rot_scale = tk.Scale(self.frame, from_=60, to=-60,
                                   orient='horizontal', length=200,
                                   command=self.update) 
         self.rot_scale.pack()
 
         #slice scale
         self.slice_scale = tk.Scale(self.frame, from_=0, to=self.__img.shape[0]-1,
-                                     orient='vertical', length=500,
+                                     orient='vertical', length=500, showvalue=False,
                                      command=self.update)
         self.slice_scale.set(self.curr_slice)
         self.slice_scale.pack(side=tk.LEFT)
 
         self.fig = Figure()
-        self.fig.add_subplot(111).imshow(rotate(self.__img[self.curr_slice], self.theta_degrees))
         self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
-        self.canvas.draw()
+        self.fig.add_subplot(111)
+        self.update()
         
         # add mpl toolbar to allow zoom, translation
         toolbar = NavigationToolbar2Tk(self.canvas, self.frame) 
@@ -126,12 +139,11 @@ class Atlas():
     '''
     Updates image shown based on theta and slice selections
     '''
-    def update(self, _):
+    def update(self, _=None):
         self.theta_degrees = int(self.rot_scale.get())
         self.curr_slice = int(self.slice_scale.get())
 
         self.fig.axes[0].imshow(rotate(self.__img[self.curr_slice], self.theta_degrees))
         self.canvas.draw()
-        self.frame.update_idletasks()
         
 

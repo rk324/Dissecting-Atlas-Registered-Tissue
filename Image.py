@@ -32,7 +32,7 @@ class Image:
     Create button to load image data
     Will load and display image and if filename is provided
     '''
-    def __init__(self,master,filename=None):
+    def __init__(self, master, filename=None):
         self.__frame = tk.Frame(master=master)
         self.__frame.pack()
 
@@ -41,22 +41,6 @@ class Image:
         
         if filename is not None: self.load(filename)
         
-    
-    '''
-    Display image data using matplotlib
-    '''
-    def display(self):
-        fig = Figure()
-        fig.add_subplot(111).imshow(self.__img)
-        canvas = FigureCanvasTkAgg(fig,master=self.__frame)
-        canvas.draw()
-        
-        # add mpl toolbar to allow zoom, translation
-        toolbar = NavigationToolbar2Tk(canvas, self.__frame) 
-        toolbar.update() 
-
-        canvas.get_tk_widget().pack()
-    
     '''
     Load image data using a file dialog, then call display()
     if file is chosen and hide file load button.
@@ -76,5 +60,20 @@ class Image:
         self.display()
 
         return True
+  
+    '''
+    Display image data using matplotlib
+    '''
+    def display(self):
+        fig = Figure()
+        fig.add_subplot(111).imshow(self.__img)
+        canvas = FigureCanvasTkAgg(fig,master=self.__frame)
+        canvas.draw()
+        
+        # add mpl toolbar to allow zoom, translation
+        toolbar = NavigationToolbar2Tk(canvas, self.__frame) 
+        toolbar.update() 
 
+        canvas.get_tk_widget().pack()
+    
         

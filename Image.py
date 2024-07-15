@@ -16,22 +16,31 @@ __img: img data
 
 load_file_btn: button for loading image data, is hidden 
 after image chosen
+
+### functions ###
+__init__: creates frame to hold everything, load & display image
+if filename provided
+
+display: displays image dat
+
+load: loads image data from file selected via file dialog
 '''
 class Image: 
 
     '''
     Initialize with master frame and optional filename of image.
-    Will load and display image if filename is provided, else
-    displays button for loading image data
+    Create button to load image data
+    Will load and display image and if filename is provided
     '''
     def __init__(self,master,filename=None):
         self.__frame = tk.Frame(master=master)
         self.__frame.pack()
 
+        self.load_file_btn = tk.Button(master=self.__frame, text="Load data", command=self.load)
+        self.load_file_btn.pack()
+        
         if filename is not None: self.load(filename)
-        else:
-            self.load_file_btn = tk.Button(master=self.__frame, text="Load data", command=self.load)
-            self.load_file_btn.pack()
+        
     
     '''
     Display image data using matplotlib

@@ -1,11 +1,22 @@
 import tkinter as tk
-from Image import Image
-from Atlas import Atlas
+from tkinter import ttk
+import os
+#from Image import Image
+#from Atlas import Atlas
+from start import Starter
 
-root = tk.Tk()
-img = Atlas(root)
+class App:
+    def __init__(self):
+        root = tk.Tk()
+        curr_page = Starter(root)
+        root.mainloop()
+
+
+app = App()
+        
+
+'''img = Atlas(root)
 img.frame.pack(side=tk.LEFT)
 img2 = Image(root)
 img2.frame.pack(side=tk.LEFT)
-
-root.mainloop()
+'''

@@ -41,6 +41,11 @@ class Image:
         fig.add_subplot(111).imshow(self.__img)
         canvas = FigureCanvasTkAgg(fig,master=self.__frame)
         canvas.draw()
+        
+        # add mpl toolbar to allow zoom, translation
+        toolbar = NavigationToolbar2Tk(canvas, self.__frame) 
+        toolbar.update() 
+
         canvas.get_tk_widget().pack()
     
     '''

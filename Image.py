@@ -1,16 +1,15 @@
 import tkinter as tk
+from tkinter import ttk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
 NavigationToolbar2Tk) 
 import skimage as ski
 
 '''
-Abstract Image class for displaying atlas and target images
-will have child classes: atlas, target
+Image class for displaying target images
 
 ### fields ###
-__frame: the frame containing image and possible other 
-features (see child classes)
+frame: the frame containing image, button, etc
 
 __img: img data
 
@@ -21,9 +20,9 @@ after image chosen
 __init__: creates frame to hold everything, load & display image
 if filename provided
 
-display: displays image dat
-
 load: loads image data from file selected via file dialog
+
+display: displays image data
 '''
 class Image: 
 
@@ -33,10 +32,10 @@ class Image:
     Will load and display image and if filename is provided
     '''
     def __init__(self, master, filename=None):
-        self.__frame = tk.Frame(master=master)
-        self.__frame.pack()
+        self.frame = ttk.Frame(master=master)
+        self.frame.pack()
 
-        self.load_file_btn = tk.Button(master=self.__frame, text="Load data", command=self.load)
+        self.load_file_btn = ttk.Button(master=self.frame, text="Load data", command=self.load)
         self.load_file_btn.pack()
         
         if filename is not None: self.load(filename)
@@ -56,8 +55,8 @@ class Image:
             filename = file.name
         
         self.__img = ski.io.imread(filename)
-        self.load_file_btn.pack_forget()
         self.display()
+        self.load_file_btn.pack_forget()
 
         return True
   
@@ -67,11 +66,11 @@ class Image:
     def display(self):
         fig = Figure()
         fig.add_subplot(111).imshow(self.__img)
-        canvas = FigureCanvasTkAgg(fig,master=self.__frame)
+        canvas = FigureCanvasTkAgg(fig,master=self.frame)
         canvas.draw()
         
         # add mpl toolbar to allow zoom, translation
-        toolbar = NavigationToolbar2Tk(canvas, self.__frame) 
+        toolbar = NavigationToolbar2Tk(canvas, self.frame) 
         toolbar.update() 
 
         canvas.get_tk_widget().pack()

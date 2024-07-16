@@ -104,6 +104,17 @@ class STalign_Prep(Page):
     def update(self, _=None):
         self.fig.axes[0].imshow(self.atlas.get_img())
         self.canvas.draw()
+    
+    def next(self):
+        self.deactivate()
+        return Landmark_Annotator(self.master, self.atlas, self.target)
+    
+class Landmark_Annotator(Page):
+
+    def __init__(self, master, atlas, target):
+        self.atlas = atlas
+        self.target = target
+
 
 
 

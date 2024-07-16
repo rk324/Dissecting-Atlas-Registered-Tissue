@@ -31,6 +31,9 @@ class Atlas():
         elif filetype == 'nrrd': dxA = self.load_nrrd(img_list)
         else: raise Exception ("Invalid atlas file type!")
 
+        self.prev_theta = self.theta_degrees.get()
+        self.cache_img = self.img[self.curr_slice.get()]
+
         self.curr_slice.set(int(self.img.shape[0]/2))
         self.xA = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(self.img.shape,dxA)]
  
@@ -58,27 +61,30 @@ class Atlas():
         return dxA
 
     def get_img(self):
-        return rotate(self.img[self.curr_slice.get()],
-                      self.theta_degrees.get())
-        # TODO: set up method to store most recently rotated atlas, 
-        # and rotate from there instead of rotating from base each time
-        # will hopefully reduce time to rotate for larger numbers        
 
+        theta = self.theta_degrees.get()
+        rot_diff = theta-self.prev_theta
+        if rot_diff == 0: # changing slice, no reason to use cached img
+            return rotate(self.img[self.curr_slice.get()], theta)
+        elif rot_diff**2 < theta**2: # faster to rotate cache img
+            self.cache_img = rotate(self.cache_img, rot_diff)
+        else: # faster to rotate img from theta=0
+            self.cache_img = rotate(self.img[self.curr_slice.get()], 
+                                    theta)
+        return self.cache_img
+        
 class Target: 
 
-    def __init__(self, img_name):
-        self.load(img_name)
-    
-    def load(self, img_name, xA): 
-        self.__img = ski.color.rgb2gray(ski.io.imread(img_name))
+    def __init__(self, img_name,xA):
+        W = ski.color.rgb2gray(ski.io.imread(img_name))
         atlas_dim = [len(x) for x in xA]
-        print(atlas_dim)
-
-    
-    '''def preprocess(self):
-        W = ski.color.rgb2gray(self.__img)
-        ds_factor = np.max(np.divide(W.shape, dimAtlas[1:])) #factor to downscale by
-        ds_factor = int(ds_factor)'''
+        dxA = [x[1]-x[0] for x in xA]
+        
+        # TODO: rescaling/downscaling image + padding based on how 
+        # much of img is the actual slice
+        W = (W - np.min(W)) / (np.max(W) - np.min(W)) # normalizing img
+        # TODO: add feature to invert colors
+        self.img = W
     
     def get_img(self):
-        return self.__img
+        return self.img

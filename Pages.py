@@ -73,8 +73,8 @@ class STalign_Prep(Page):
         self.target = Target(target_address, self.atlas)
         
         # rotation scale
-        self.rot_scale = ttk.Scale(self.frame, from_=60, to=-60, 
-                                   orient='horizontal', length=200,
+        self.rot_scale = ttk.Scale(self.frame, from_=180, to=-180, 
+                                   orient='horizontal', length=500,
                                    variable=self.atlas.theta_degrees,
                                    command=self.update) 
 
@@ -102,8 +102,9 @@ class STalign_Prep(Page):
         toolbar_frame.grid(row=2, column=1)
     
     def update(self, _=None):
+        self.fig.axes[0].cla()
         self.fig.axes[0].imshow(self.atlas.get_img())
-        self.canvas.draw()
+        self.fig.canvas.draw_idle()
     
     def next(self):
         self.deactivate()

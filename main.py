@@ -9,11 +9,18 @@ from abc import ABC
 class App:
     def __init__(self):
         self.root = tk.Tk()
-        self.pages = [Starter(self.root)] # TODO: add more pages
+        self.pages = [Starter(self.root)]
         self.curr_page_idx = 0
         
-        self.prev_btn = ttk.Button(self.root,text="Previous", command=self.prev_pg)
-        self.nxt_btn = ttk.Button(self.root,text="Next", command=self.nxt_pg)
+        self.pg_header = tk.StringVar()
+        pg_header_label = ttk.Label(self.root,textvariable=self.pg_header)
+
+        btns_frame = ttk.Frame()
+        self.prev_btn = ttk.Button(btns_frame,text="Previous", command=self.prev_pg)
+        self.nxt_btn = ttk.Button(btns_frame,text="Next", command=self.nxt_pg)
+
+        pg_header_label.grid(row=0, column=0)
+        btns_frame.grid(row=2, column=0)
 
     def start(self):
         self.update()
@@ -33,15 +40,19 @@ class App:
         self.update()
     
     def update(self):
+        # activate current page
         self.pages[self.curr_page_idx].activate()
         
+        # show page header for current page
+        self.pg_header.set(self.pages[self.curr_page_idx].header)
+
         # logic for showing next and previous buttons
-        self.prev_btn.grid(row=1,column=0)
-        self.nxt_btn.grid(row=1,column=1)
+        self.prev_btn.pack(side=tk.LEFT)
+        self.nxt_btn.pack(side=tk.RIGHT)
         if self.curr_page_idx == 0:
-            self.prev_btn.grid_remove()
+            self.prev_btn.pack_forget()
         elif self.curr_page_idx == 4:
-            self.nxt_btn.grid_remove()
+            self.nxt_btn.pack_forget()
 
 
 # Actually run the app

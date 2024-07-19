@@ -97,12 +97,18 @@ class Target(Image):
         # TODO: rescaling/downscaling image + padding based on how 
         # much of img is the actual slice
         W = ski.io.imread(filename)
-        if len(W.shape)==3 and W.shape[-1]==3:
-            W = ski.color.rgb2gray(W)
-        for _ in range(len(W.shape)-2): W = W[0] # eliminating extra channels (assuming relavant information is in last two axes)
         
+        if len(W.shape)==3 and W.shape[-1]==3: # grayscale img if rgb
+            W = ski.color.rgb2gray(W)
+        
+        # eliminating extra channels 
+        # (assuming relavant information is in last two axes)
+        for _ in range(len(W.shape)-2): W = W[0] 
+        
+        # invert colors if more pixels at full intensity than at 0
         if np.count_nonzero(W==1) > np.count_nonzero(W==0): W = 1-W
 
+        # downscale to general shape of atlas TODO: accomodate for rotation
         ds_factor = int(np.max(W.shape) / np.max(self.src_atlas.shape))
         if ds_factor == 0: ds_factor = 1
         W = ski.transform.downscale_local_mean(W, (ds_factor, ds_factor))

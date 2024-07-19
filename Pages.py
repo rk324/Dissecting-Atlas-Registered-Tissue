@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import os
 from Images import *
+import torch
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
@@ -12,9 +13,11 @@ class Page:
     def __init__(self,master):
         self.frame = ttk.Frame(master)
         self.master = master
+
+        self.header = ''
         
     def activate(self):
-        self.frame.grid(row=0,columnspan=2)
+        self.frame.grid(row=1, column=0)
     
     def deactivate(self):
         self.frame.grid_remove()
@@ -28,6 +31,7 @@ class Starter(Page):
     def __init__(self, master):
 
         super().__init__(master)
+        self.header='Select atlas and target image'
 
         self.atlas_name = tk.StringVar()
         atlases = [name for name in os.listdir('Data\\Atlases')]
@@ -69,6 +73,7 @@ class STalign_Prep(Page):
     def __init__(self, master, atlas_name, target_address):
 
         super().__init__(master)
+        self.header = 'Select slice and estimate rotation using sliders.'
         self.atlas = Atlas(atlas_name)
         self.target = Target(target_address, self.atlas)
         
@@ -115,6 +120,15 @@ class Landmark_Annotator(Page):
     def __init__(self, master, atlas, target):
         super().__init__(master)
 
+        # controls
+        self.header = '''Mark atlas-target point pairs one pair at a time and submit each pair before marking the next! Click 'Next' to move on
+        
+        Controls:
+        L-click\tmark point
+        R-click\tremove point
+        Enter\tsubmit point
+        Backspace\tdelete last submitted'''
+
         self.atlas = atlas
         self.target = target
     
@@ -123,17 +137,7 @@ class Landmark_Annotator(Page):
         self.points = [ [], [] ] # landmark points, points[0][i] in atlas corresponds with points[1][i] in target
         self.new_pt = [ [], [] ]
         self.pt_sz = 2
-        
-        # controls
-        text = '''Mark atlas-target point pairs one pair at a time and submit each pair before marking the next! Click 'Next' to move on
-        
-        Controls:
-        L-click\tmark point
-        R-click\tremove point
-        Enter\tsubmit point
-        Backspace\tdelete last submitted'''
-        instructions = ttk.Label(self.frame, text=text)
-
+    
         # showing images
         self.fig = Figure()
         self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
@@ -145,9 +149,8 @@ class Landmark_Annotator(Page):
         toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame) 
         toolbar.update()
 
-        instructions.grid(row=0, column=0)
-        self.canvas.get_tk_widget().grid(row=1, column=0)
-        toolbar_frame.grid(row=2, column=0)
+        self.canvas.get_tk_widget().grid(row=0, column=0)
+        toolbar_frame.grid(row=1, column=0)
 
         self.canvas.mpl_connect('button_press_event', self.onclick)
         self.canvas.mpl_connect('key_press_event',self.onpress)
@@ -226,6 +229,97 @@ class Landmark_Annotator(Page):
             self.points[0].pop(-1)
             self.points[1].pop(-1)
             self.update() # refresh both axes
+
+    def next(self):
+        self.deactivate()
+        return STalign_Runner(self.master, self.atlas, self.target, self.points)
+    
+class STalign_Runner(Page):
+
+    def __init__(self, master, atlas, target, landmark_pts):
+        super().__init__(master)
+        self.header='''Enter desired parameters. Recommended parameters loaded. Click 'Start' when ready
+
+        nt: Number of timesteps for integrating velocity field
+        niter: Number of iterations of gradient descent optimization
+        epL: Gradient descent step size for linear part of affine
+        epT: Gradient descent step size of translation part of affine
+        epV: Gradient descent step size for velocity field
+        sigmaM: Controls matching accuracy with smaller corresponding to more accurate. 
+        sigmaR: Standard deviation for regularization- Smaller means smoother transformation
+        sigmaP: Standard deviation for matching of points
+        a: Smoothness scale of velocity field
+        '''
+        self.run_complete = False
+
+        self.atlas = atlas
+        self.target = target
+        self.points = landmark_pts
+
+        W = self.target.img
+        A = self.atlas.img
+        xI = self.atlas.pix_loc
+        xJ = self.target.pix_loc
+        slice = self.atlas.curr_slice.get()
+
+        scale_x = 1
+        scale_y = 2
+        scale_z = 3
+        theta = torch.tensor((np.pi/180)*self.atlas.theta_degrees.get()) 
+
+        self.J = W[None] / np.mean(np.abs(W))
+        self.I = A[None] / np.mean(np.abs(A), keepdims=True)
+        self.I = np.concatenate((self.I, (self.I - np.mean(self.I))**2))
+
+        self.T = np.array([-xI[0][slice], np.mean(xJ[0]), np.mean(xJ[1])])
+        rot_matrix = np.array([ [1.0,           0.0,            0.0],
+                                [0.0, np.cos(theta), -np.sin(theta)],
+                                [0.0, np.sin(theta),  np.cos(theta)] ])
+        scale_matrix = np.diagflat([scale_z, scale_y, scale_x])
+        self.L = np.matmul(rot_matrix, scale_matrix)
+
+        int_checker = self.frame.register(self.isInt)
+
+        ### USER ENTERED PARAMETERS ###
+
+        defaults = {
+            'nt': 12,
+            'niter': 50,
+            'epL': 1e-9,
+            'epT': 1e-9,
+            'epV': 1e-7,
+            'sigmaM': 4e-1,
+            'sigmaR': 1e8,
+            'sigmaP': 1,
+            'a': 700,
+            }
+        
+        self.param_vars = [tk.IntVar(value=defaults[key]) for key in defaults]
+        labels = [ttk.Label(self.frame, text=key) for key in defaults]
+        entries = [ttk.Entry(self.frame, textvariable=p,
+                             validate='all',
+                             validatecommand=(int_checker, '%P', '%W')) for p in self.param_vars]
+
+        start_btn = ttk.Button(self.frame, text="Start", command=self.run) #start btn
+
+        for row,label in enumerate(labels): label.grid(row=row, column=0)
+        for row,entry in enumerate(entries): entry.grid(row=row, column=1, padx=10)
+        start_btn.grid(row=len(defaults), columnspan=2)
+
+    def isInt(self, P, W):
+        if str.isdigit(P) or P == '': 
+            print(P)
+            print(self.param_vars.get())
+            return True
+        return False
+    
+    def run(self):
+        print('hi!')
+    
+    def next(self):
+        if not self.run_complete:
+            raise Exception('Cannot advance until run is complete')
+
 
 
 

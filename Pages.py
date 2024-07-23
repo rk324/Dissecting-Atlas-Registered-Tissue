@@ -3,10 +3,15 @@ from tkinter import ttk
 import os
 from Images import *
 import torch
+import shapely
+import pandas as pd
+from sklearn.cluster import dbscan
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
-NavigationToolbar2Tk) 
+NavigationToolbar2Tk)
+
+import pickle #TODO: remove if not using anymore
 
 class Page:
 
@@ -15,7 +20,19 @@ class Page:
         self.master = master
 
         self.header = ''
+    
+    def create_figure(self, num_rows, num_cols):
         
+        # create plots with specified dimensions
+        self.fig = Figure()
+        self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
+        self.fig.subplots(num_rows, num_cols)
+
+        # add mpl toolbar to allow zoom, translation
+        self.toolbar_frame = ttk.Frame(self.frame)
+        toolbar = NavigationToolbar2Tk(self.canvas, self.toolbar_frame) 
+        toolbar.update()
+
     def activate(self):
         self.frame.grid(row=1, column=0)
     
@@ -65,14 +82,16 @@ class Starter(Page):
         elif target_address == "": raise Exception("Please select a target image file")
 
         self.deactivate()
-        return STalign_Prep(self.master, chosen_atlas, target_address)
-
+        return STalign_Prep(self)
 
 class STalign_Prep(Page):
     
-    def __init__(self, master, atlas_name, target_address):
+    def __init__(self, prev):
 
-        super().__init__(master)
+        super().__init__(prev.master)
+        atlas_name = prev.atlas_name.get()
+        target_address = prev.target_file_name.get()
+
         self.header = 'Select slice and estimate rotation using sliders.'
         self.atlas = Atlas(atlas_name)
         self.target = Target(target_address, self.atlas)
@@ -89,22 +108,15 @@ class STalign_Prep(Page):
                                      variable=self.atlas.curr_slice,
                                      command=self.update)
 
-        # showing images
-        self.fig = Figure()
-        self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
-        self.fig.subplots(1,2)
+        # show images
+        self.create_figure(1,2)
         self.fig.axes[1].imshow(self.target.get_img())
         self.update()
-        
-        # add mpl toolbar to allow zoom, translation
-        toolbar_frame = ttk.Frame(self.frame)
-        toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame) 
-        toolbar.update()
 
         self.rot_scale.grid(row=0, column=1)
         self.slice_scale.grid(row=1, column=0)
         self.canvas.get_tk_widget().grid(row=1, column=1)
-        toolbar_frame.grid(row=2, column=1)
+        self.toolbar_frame.grid(row=2, column=1)
     
     def update(self, _=None):
         self.fig.axes[0].cla()
@@ -113,12 +125,12 @@ class STalign_Prep(Page):
     
     def next(self):
         self.deactivate()
-        return Landmark_Annotator(self.master, self.atlas, self.target)
-    
+        return Landmark_Annotator(self)
+
 class Landmark_Annotator(Page):
 
-    def __init__(self, master, atlas, target):
-        super().__init__(master)
+    def __init__(self, prev):
+        super().__init__(prev.master)
 
         # controls
         self.header = '''Mark atlas-target point pairs one pair at a time and submit each pair before marking the next! Click 'Next' to move on
@@ -129,28 +141,21 @@ class Landmark_Annotator(Page):
         Enter\tsubmit point
         Backspace\tdelete last submitted'''
 
-        self.atlas = atlas
-        self.target = target
+        self.atlas = prev.atlas
+        self.target = prev.target
     
-        self.imgs = [atlas.get_img(0), target.get_img()]
-        self.extents = [atlas.get_extent(), target.get_extent()]
+        self.imgs = [self.atlas.get_img(0), self.target.get_img()]
+        self.extents = [self.atlas.get_extent(), self.target.get_extent()]
         self.points = [ [], [] ] # landmark points, points[0][i] in atlas corresponds with points[1][i] in target
         self.new_pt = [ [], [] ]
         self.pt_sz = 2
     
-        # showing images
-        self.fig = Figure()
-        self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
-        self.fig.subplots(1,2)
+        #show images
+        self.create_figure(1,2)
         self.update()
-        
-        # add mpl toolbar to allow zoom, translation
-        toolbar_frame = ttk.Frame(self.frame)
-        toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame) 
-        toolbar.update()
 
         self.canvas.get_tk_widget().grid(row=0, column=0)
-        toolbar_frame.grid(row=1, column=0)
+        self.toolbar_frame.grid(row=1, column=0)
 
         self.canvas.mpl_connect('button_press_event', self.onclick)
         self.canvas.mpl_connect('key_press_event',self.onpress)
@@ -232,12 +237,12 @@ class Landmark_Annotator(Page):
 
     def next(self):
         self.deactivate()
-        return STalign_Runner(self.master, self.atlas, self.target, self.points)
+        return STalign_Runner(self)
     
 class STalign_Runner(Page):
 
-    def __init__(self, master, atlas, target, landmark_pts):
-        super().__init__(master)
+    def __init__(self, prev):
+        super().__init__(prev.master)
         self.header='''Enter desired parameters. Recommended parameters loaded. Click 'Start' when ready
 
         nt: Number of timesteps for integrating velocity field
@@ -252,9 +257,9 @@ class STalign_Runner(Page):
         '''
         self.run_complete = False
 
-        self.atlas = atlas
-        self.target = target
-        self.points = landmark_pts
+        self.atlas = prev.atlas
+        self.target = prev.target
+        self.points = prev.points
 
         W = self.target.img
         A = self.atlas.img
@@ -315,10 +320,116 @@ class STalign_Runner(Page):
     
     def run(self):
         print('hi!')
+        # TODO: add call to stalign.LDDMM_3D here
+        with open('Data\\Transforms_samples\\sample_1.pickle', 'rb') as file: #TODO: remove this blurb
+            transform = pickle.load(file)
+        self.transform = transform
+
+        self.run_complete = True
     
     def next(self):
         if not self.run_complete:
             raise Exception('Cannot advance until run is complete')
+        
+        self.deactivate()
+        return Boundary_Generator(self)
+
+class Boundary_Generator(Page):
+
+    def __init__(self, prev):
+
+        super().__init__(prev.master)
+
+        self.header = ''''''
+
+        self.atlas = prev.atlas
+        self.target = prev.target
+        self.transform = prev.transform
+
+        # read allen_ontology and store id to region name matches in namesdict
+        ontology_name = 'Data\\allen_ontology.csv'
+        O = pd.read_csv(ontology_name)
+
+        self.namesdict = {}
+        self.namesdict[0] = 'bg'
+        for i,n in zip(O['id'],O['acronym']):
+            self.namesdict[i] = n
+
+        # get transformed annotation
+        self.transform_atlas()
+
+        self.region_list = np.delete(np.unique(self.region_graph), 0) # create list of regions found
+
+        # create dictionary of all regions in region_graph , excluding 0 (bg) and pair it with a display state
+        # 0 = off, 1 = on, 2 = hovering
+        self.region_disp_dict = {} 
+
+        self.get_boundaries() # get boundaries of each region
+
+        # show target w regions overlayed
+        self.create_figure(1,1)
+        self.fig.axes[0].imshow(self.target.get_img())
+        self.update()
+
+        self.canvas.get_tk_widget().grid(row=0, column=0)
+        self.toolbar_frame.grid(row=1, column=0)
+
+
+    
+    def transform_atlas(self):
+        A = self.transform['A']
+        v = self.transform['v']
+        xv = self.transform['xv']
+        Xs = self.transform['Xs']
+
+        vol = self.atlas.labels
+        xL = self.atlas.pix_loc
+        xJ = self.target.pix_loc
+
+        # next chose points to sample on
+        res = 10.0
+        XJ = np.stack(np.meshgrid(np.zeros(1),xJ[0],xJ[1],indexing='ij'),-1)
+
+        tform = STalign.build_transform3D(xv,v,A,direction='b',XJ=torch.tensor(XJ,device=A.device))
+
+        AphiL = STalign.interp3D(
+                xL,
+                torch.tensor(vol[None].astype(np.float64),dtype=torch.float64,device=tform.device),
+                tform.permute(-1,0,1,2),
+                mode='nearest',)[0,0].cpu().int()
+
+        self.region_graph = AphiL.numpy()
+    
+    def get_boundaries(self):
+        self.boundaries = {}
+
+        for region_id in self.region_list:
+            region_name = self.namesdict[region_id]
+            pts = np.fliplr(np.argwhere(self.region_graph==region_id)) # get all pts where region is marked
+            
+            cores,labels = dbscan(pts, eps=5, min_samples=1, metric='manhattan')
+
+            for l in set(labels):
+                if l == -1: continue
+                cluster = pts[labels==l]
+
+                hull = shapely.concave_hull(shapely.MultiPoint(cluster), 0.01) # get hull for cluster
+                
+                # only hulls defined as polygons can actually be cut out, other hulls will not be shown
+                if hull.geom_type == 'Polygon':
+                    new_region_name = f'{region_name}_{l}'
+                    self.boundaries[new_region_name] = hull # add coordinates of hull to list
+                    self.region_disp_dict[new_region_name] = 1 # add it to the display dictionary
+                    print(f'{new_region_name} added!')  
+
+    def update(self):
+        for region in self.region_disp_dict.items():
+            print(region[0] + ' displayed!')
+            bound = shapely.get_coordinates(self.boundaries[region[0]])
+            if region[1] == 1:
+                self.fig.axes[0].plot(bound[:,0], bound[:,1], c='white')
+            elif region[1] == 2:
+                self.fig.axes[0].plot(bound[:,0], bound[:,1], c='red')
 
 
 

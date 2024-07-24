@@ -20,7 +20,7 @@ class App:
         self.nxt_btn = ttk.Button(btns_frame,text="Next", command=self.nxt_pg)
 
         pg_header_label.grid(row=0, column=0)
-        btns_frame.grid(row=2, column=0,sticky='we',padx=10, pady=10)
+        btns_frame.grid(row=2, column=0,sticky='we',padx=10, pady=5)
 
     def start(self):
         self.update()

@@ -15,12 +15,12 @@ class App:
         self.pg_header = tk.StringVar()
         pg_header_label = ttk.Label(self.root,textvariable=self.pg_header)
 
-        btns_frame = ttk.Frame()
+        btns_frame = ttk.Frame(self.root)
         self.prev_btn = ttk.Button(btns_frame,text="Previous", command=self.prev_pg)
         self.nxt_btn = ttk.Button(btns_frame,text="Next", command=self.nxt_pg)
 
         pg_header_label.grid(row=0, column=0)
-        btns_frame.grid(row=2, column=0)
+        btns_frame.grid(row=2, column=0,sticky='we',padx=10, pady=10)
 
     def start(self):
         self.update()

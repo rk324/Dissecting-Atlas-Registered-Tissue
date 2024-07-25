@@ -369,25 +369,58 @@ class Boundary_Generator(Page):
 
         # list all regions in region_disp_dict with checkboxes to toggle
         region_picker_frame = tk.Frame(self.frame)
-
         checkbox_canvas = tk.Canvas(region_picker_frame, height=self.canvas.get_width_height()[1])
         
-        scrollbar = ttk.Scrollbar(region_picker_frame, orient='vertical')
-        scrollbar.config(command=checkbox_canvas.yview)
+        # add scrollbar and configure
+        scrollbar = ttk.Scrollbar(region_picker_frame, orient='vertical', 
+                                  command=checkbox_canvas.yview)
         checkbox_canvas.config(yscrollcommand=scrollbar.set)
         
+        # create scrollable frame for checkboxes within canvas
         checkbox_frame = tk.Frame(checkbox_canvas)
-        checkbox_canvas.create_window((4,4),anchor='nw', window=checkbox_frame)
+        checkbox_frame.bind(
+            '<Configure>',
+            lambda e: checkbox_canvas.config(scrollregion=checkbox_canvas.bbox("all"))
+        )
+        checkbox_canvas.create_window((0,0), anchor='nw', 
+                                      window=checkbox_frame)
         
+        # Add checkbuttons for regions
         for region in self.region_disp_dict.keys():
-            btn = ttk.Checkbutton(checkbox_frame, text=region, variable=self.region_disp_dict[region], command=self.update)
-            btn.pack()
+            btn = ttk.Checkbutton(checkbox_frame, text=region, 
+                                  variable=self.region_disp_dict[region], 
+                                  command=self.update)
+            btn.pack(fill='x') # forces left-justify
+        
+        # resize canvas to match scroll frame width
+        checkbox_frame.update()
+        checkbox_canvas.config(width=checkbox_frame.winfo_width())
 
-        self.all_btn_txt = tk.StringVar(value="Clear all")
-        all_btn = ttk.Checkbutton(region_picker_frame, textvariable=self.all_btn_txt, command=self.toggle_all)
-        all_btn.pack(side='bottom')
+        def MouseHandler(event):
+            scroll = 0
 
-        checkbox_canvas.config(scrollregion = '')
+            if event.num==5 or event.delta < 0:
+                scroll = -1
+            elif event.num==4 or event.delta > 0:
+                scroll = 1
+            
+            if event.delta % 120 == 0: scroll *= -1 # windows is flipped
+
+            checkbox_canvas.yview_scroll(scroll, 'units')
+
+        checkbox_frame.bind_all('<MouseWheel>', MouseHandler )
+        checkbox_frame.bind_all('<Button-4>', MouseHandler )
+        checkbox_frame.bind_all('<Button-5>', MouseHandler )
+
+        # Clear and Select All Buttons
+        toggle_all_frame = ttk.Frame(region_picker_frame)
+        clear_all_btn = ttk.Button(toggle_all_frame, text='Clear All', command=self.clear_all)
+        select_all_btn = ttk.Button(toggle_all_frame, text='Select All', command=self.select_all)
+        
+        # Display everything
+        clear_all_btn.pack(side='left')
+        select_all_btn.pack(side='left')
+        toggle_all_frame.pack(side='bottom')
 
         scrollbar.pack(side='right', fill='y')
         checkbox_canvas.pack(side='left', fill='both')
@@ -420,13 +453,12 @@ class Boundary_Generator(Page):
 
         self.region_graph = AphiL.numpy()
     
-    def toggle_all(self):
-        if self.all_btn_txt.get() == 'Clear All':
-            for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(0)
-            self.all_btn_txt.set('Select All')
-        else:
-            for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(1)
-            self.all_btn_txt.set('Clear All')
+    def clear_all(self):
+        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(0)
+        self.update()
+
+    def select_all(self):
+        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(1)
         self.update()
 
     def get_boundaries(self):

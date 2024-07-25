@@ -363,71 +363,22 @@ class Boundary_Generator(Page):
 
         self.get_boundaries() # get boundaries of each region
 
-        # show target w regions overlayed
+        # show target w regions overlayed and calibration point selection 
         self.create_figure(1,1)
+        self.calibration_pts = []
+        self.canvas.mpl_connect('button_press_event', self.onclick)
+        self.canvas.mpl_connect('key_press_event',self.onpress)
         self.update()
 
         # list all regions in region_disp_dict with checkboxes to toggle
-        region_picker_frame = tk.Frame(self.frame)
-        checkbox_canvas = tk.Canvas(region_picker_frame, height=self.canvas.get_width_height()[1])
+        self.region_picker_frame = tk.Frame(self.frame)
+        self.create_region_picker()
+
         
-        # add scrollbar and configure
-        scrollbar = ttk.Scrollbar(region_picker_frame, orient='vertical', 
-                                  command=checkbox_canvas.yview)
-        checkbox_canvas.config(yscrollcommand=scrollbar.set)
-        
-        # create scrollable frame for checkboxes within canvas
-        checkbox_frame = tk.Frame(checkbox_canvas)
-        checkbox_frame.bind(
-            '<Configure>',
-            lambda e: checkbox_canvas.config(scrollregion=checkbox_canvas.bbox("all"))
-        )
-        checkbox_canvas.create_window((0,0), anchor='nw', 
-                                      window=checkbox_frame)
-        
-        # Add checkbuttons for regions
-        for region in self.region_disp_dict.keys():
-            btn = ttk.Checkbutton(checkbox_frame, text=region, 
-                                  variable=self.region_disp_dict[region], 
-                                  command=self.update)
-            btn.pack(fill='x') # forces left-justify
-        
-        # resize canvas to match scroll frame width
-        checkbox_frame.update()
-        checkbox_canvas.config(width=checkbox_frame.winfo_width())
-
-        def MouseHandler(event):
-            scroll = 0
-
-            if event.num==5 or event.delta < 0:
-                scroll = -1
-            elif event.num==4 or event.delta > 0:
-                scroll = 1
-            
-            if event.delta % 120 == 0: scroll *= -1 # windows is flipped
-
-            checkbox_canvas.yview_scroll(scroll, 'units')
-
-        checkbox_frame.bind_all('<MouseWheel>', MouseHandler )
-        checkbox_frame.bind_all('<Button-4>', MouseHandler )
-        checkbox_frame.bind_all('<Button-5>', MouseHandler )
-
-        # Clear and Select All Buttons
-        toggle_all_frame = ttk.Frame(region_picker_frame)
-        clear_all_btn = ttk.Button(toggle_all_frame, text='Clear All', command=self.clear_all)
-        select_all_btn = ttk.Button(toggle_all_frame, text='Select All', command=self.select_all)
-        
-        # Display everything
-        clear_all_btn.pack(side='left')
-        select_all_btn.pack(side='left')
-        toggle_all_frame.pack(side='bottom')
-
-        scrollbar.pack(side='right', fill='y')
-        checkbox_canvas.pack(side='left', fill='both')
 
         self.canvas.get_tk_widget().grid(row=0, column=0)
         self.toolbar_frame.grid(row=1, column=0)
-        region_picker_frame.grid(row=0, column=1)
+        self.region_picker_frame.grid(row=0, column=1)
     
     def transform_atlas(self):
         A = self.transform['A']
@@ -453,14 +404,6 @@ class Boundary_Generator(Page):
 
         self.region_graph = AphiL.numpy()
     
-    def clear_all(self):
-        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(0)
-        self.update()
-
-    def select_all(self):
-        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(1)
-        self.update()
-
     def get_boundaries(self):
         self.boundaries = {}
 
@@ -482,6 +425,61 @@ class Boundary_Generator(Page):
                     self.boundaries[new_region_name] = hull # add coordinates of hull to list
                     self.region_disp_dict[new_region_name] = tk.IntVar(value=1) # add it to the display dictionary
 
+    def create_region_picker(self):
+        checkbox_canvas = tk.Canvas(self.region_picker_frame, height=self.canvas.get_width_height()[1])
+        
+        # add scrollbar and configure
+        scrollbar = ttk.Scrollbar(self.region_picker_frame, orient='vertical', 
+                                  command=checkbox_canvas.yview)
+        checkbox_canvas.config(yscrollcommand=scrollbar.set)
+        
+        # create scrollable frame for checkboxes within canvas
+        checkbox_frame = tk.Frame(checkbox_canvas)
+        checkbox_frame.bind(
+            '<Configure>',
+            lambda e: checkbox_canvas.config(scrollregion=checkbox_canvas.bbox("all"))
+        )
+        checkbox_canvas.create_window((0,0), anchor='nw', 
+                                      window=checkbox_frame)
+        
+        # Add checkbuttons for regions
+        for region in self.region_disp_dict.keys():
+            btn = ttk.Checkbutton(checkbox_frame, text=region, 
+                                  variable=self.region_disp_dict[region], 
+                                  command=self.update)
+            btn.pack(fill='x') # forces left-justify
+        
+        # resize canvas to match scroll frame width
+        checkbox_frame.update()
+        checkbox_canvas.config(width=checkbox_frame.winfo_width())
+
+        # binding scrolling to application
+        def MouseHandler(event):
+            scroll = 0
+            if event.num==5 or event.delta < 0:
+                scroll = -1
+            elif event.num==4 or event.delta > 0:
+                scroll = 1
+            if event.delta % 120 == 0: scroll *= -1 # windows is flipped
+            checkbox_canvas.yview_scroll(scroll, 'units')
+
+        checkbox_frame.bind_all('<MouseWheel>', MouseHandler )
+        checkbox_frame.bind_all('<Button-4>', MouseHandler )
+        checkbox_frame.bind_all('<Button-5>', MouseHandler )
+
+        # Clear and Select All Buttons
+        toggle_all_frame = ttk.Frame(self.region_picker_frame)
+        clear_all_btn = ttk.Button(toggle_all_frame, text='Clear All', command=self.clear_all)
+        select_all_btn = ttk.Button(toggle_all_frame, text='Select All', command=self.select_all)
+        
+        # Display everything
+        clear_all_btn.pack(side='left')
+        select_all_btn.pack(side='left')
+        toggle_all_frame.pack(side='bottom')
+
+        scrollbar.pack(side='right', fill='y')
+        checkbox_canvas.pack(side='left', fill='both')
+
     def update(self):
         self.fig.axes[0].cla()
         self.fig.axes[0].imshow(self.target.get_img())
@@ -490,9 +488,98 @@ class Boundary_Generator(Page):
 
             if region[1].get() == 1:
                 self.fig.axes[0].plot(bound[:,0], bound[:,1], 'r-', lw=.75)
+        
+        if len(self.calibration_pts):
+            self.fig.axes[0].scatter(np.array(self.calibration_pts)[:,0], 
+                                     np.array(self.calibration_pts)[:,1], 
+                                     color='white', s=2)
+        self.canvas.draw()
+    
+    def onclick(self, event):
+        if event.xdata == None: return # clicked outside of axes
+        ix, iy = int(event.xdata), int(event.ydata) # get x and y data of pt
+        msg = 'calibration point'
+        
+        # update axis to clear out uncomitted pts
+        self.update()
+
+        if event.button == 1: # left click means add point at mouse location
+            self.fig.axes[0].scatter([ix],[iy], color='red', s=2)
+            self.new_pt = [ix, iy]
+            msg = f'{msg} added at [x,y]=[{ix},{iy}]'
+        elif event.button == 3: # right click means remove previously created point
+            if self.new_pt == []: return
+            msg = f'{msg} removed at [x,y]={self.new_pt}'
+            self.new_pt = []
+        
+        print(msg)
         self.canvas.draw()
 
+    def onpress(self, event):
+        if event.key == 'enter': # enter key used to commit selected points to points list
 
+            if not len(self.new_pt): # if missing a point, throw error
+                print("ERROR: attempted calibration point with no point selected!")
+                return
+
+            # add new points to list, notify user, and clear out new points list
+            self.calibration_pts.append(self.new_pt)
+            print(f"Added {self.new_pt} to points list")
+            self.new_pt = []
+            self.update()
+        
+        if event.key == 'backspace': # backspace key used to remove recently committed point
+            if len(self.calibration_pts) == 0: return # if no points to remove, simply return
+            print(f'Removed {self.calibration_pts[-1]}') # user msg
+            
+            # remove last pair of poins
+            self.calibration_pts.pop(-1)
+            self.update() # refresh both axes
+
+    def clear_all(self):
+        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(0)
+        self.update()
+
+    def select_all(self):
+        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(1)
+        self.update()
+
+    def next(self):
+        filename = tk.filedialog.asksaveasfilename(defaultextension='xml', filetypes=[('xml files','.xml')])
+        with open(filename, 'w') as file:
+            self.write_to_xml(file)
+        self.deactivate()
+
+    def write_to_xml(self, f):
+
+        f.write("<ImageData>\n")
+        f.write("<GlobalCoordinates>1</GlobalCoordinates>\n")
+
+        if len(self.calibration_pts) != 3: raise Exception("Error: three calibration points needed!")
+        for i,pt in enumerate(self.calibration_pts):
+            f.write(f"<X_CalibrationPoint_{i+1}>{pt[0]}</X_CalibrationPoint_{i+1}>\n")
+            f.write(f"<Y_CalibrationPoint_{i+1}>{pt[1]}</Y_CalibrationPoint_{i+1}>\n")
+        
+        shapes = []
+        for shape, disp in self.region_disp_dict.items():
+            if disp.get() == 1: shapes.append(shape)
+
+        f.write(f"<ShapeCount>{len(shapes)}</ShapeCount>\n")
+
+        for i,shape in enumerate(shapes):
+            f.write(f"<Shape_{i+1}>\n")
+            self.write_shape_to_xml(shape,f)
+            f.write(f"</Shape_{i+1}>\n")
+
+        f.write("</ImageData>")
+            
+    def write_shape_to_xml(self, shape_name, f):
+        points = shapely.get_coordinates(self.boundaries[shape_name])
+        f.write(f"<PointCount>{len(points)+1}</PointCount>\n")
+
+        for i in range(len(points)):
+            f.write(f"<X_{i+1}>{points[i][0]}</X_{i+1}>\n")
+            f.write(f"<Y_{i+1}>{points[i][1]}</Y_{i+1}>\n")  
 
 
     

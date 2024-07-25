@@ -37,7 +37,7 @@ class Page:
         self.frame.grid(row=1, column=0)
     
     def deactivate(self):
-        self.frame.grid_remove()
+        self.frame.grid_forget()
     
     # just in case gets called in a child class that doesnt havea definition for it
     def previous(self): pass
@@ -312,10 +312,7 @@ class STalign_Runner(Page):
         start_btn.grid(row=len(defaults), columnspan=2)
 
     def isInt(self, P, W):
-        if str.isdigit(P) or P == '': 
-            print(P)
-            print(self.param_vars.get())
-            return True
+        if str.isdigit(P) or P == '': return True
         return False
     
     def run(self):
@@ -361,20 +358,43 @@ class Boundary_Generator(Page):
         self.region_list = np.delete(np.unique(self.region_graph), 0) # create list of regions found
 
         # create dictionary of all regions in region_graph , excluding 0 (bg) and pair it with a display state
-        # 0 = off, 1 = on, 2 = hovering
+        # 0 = off, 1 = on
         self.region_disp_dict = {} 
 
         self.get_boundaries() # get boundaries of each region
 
         # show target w regions overlayed
         self.create_figure(1,1)
-        self.fig.axes[0].imshow(self.target.get_img())
         self.update()
+
+        # list all regions in region_disp_dict with checkboxes to toggle
+        region_picker_frame = tk.Frame(self.frame)
+
+        checkbox_canvas = tk.Canvas(region_picker_frame, height=self.canvas.get_width_height()[1])
+        
+        scrollbar = ttk.Scrollbar(region_picker_frame, orient='vertical')
+        scrollbar.config(command=checkbox_canvas.yview)
+        checkbox_canvas.config(yscrollcommand=scrollbar.set)
+        
+        checkbox_frame = tk.Frame(checkbox_canvas)
+        checkbox_canvas.create_window((4,4),anchor='nw', window=checkbox_frame)
+        
+        for region in self.region_disp_dict.keys():
+            btn = ttk.Checkbutton(checkbox_frame, text=region, variable=self.region_disp_dict[region], command=self.update)
+            btn.pack()
+
+        self.all_btn_txt = tk.StringVar(value="Clear all")
+        all_btn = ttk.Checkbutton(region_picker_frame, textvariable=self.all_btn_txt, command=self.toggle_all)
+        all_btn.pack(side='bottom')
+
+        checkbox_canvas.config(scrollregion = '')
+
+        scrollbar.pack(side='right', fill='y')
+        checkbox_canvas.pack(side='left', fill='both')
 
         self.canvas.get_tk_widget().grid(row=0, column=0)
         self.toolbar_frame.grid(row=1, column=0)
-
-
+        region_picker_frame.grid(row=0, column=1)
     
     def transform_atlas(self):
         A = self.transform['A']
@@ -400,6 +420,15 @@ class Boundary_Generator(Page):
 
         self.region_graph = AphiL.numpy()
     
+    def toggle_all(self):
+        if self.all_btn_txt.get() == 'Clear All':
+            for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(0)
+            self.all_btn_txt.set('Select All')
+        else:
+            for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(1)
+            self.all_btn_txt.set('Clear All')
+        self.update()
+
     def get_boundaries(self):
         self.boundaries = {}
 
@@ -419,17 +448,17 @@ class Boundary_Generator(Page):
                 if hull.geom_type == 'Polygon':
                     new_region_name = f'{region_name}_{l}'
                     self.boundaries[new_region_name] = hull # add coordinates of hull to list
-                    self.region_disp_dict[new_region_name] = 1 # add it to the display dictionary
-                    print(f'{new_region_name} added!')  
+                    self.region_disp_dict[new_region_name] = tk.IntVar(value=1) # add it to the display dictionary
 
     def update(self):
+        self.fig.axes[0].cla()
+        self.fig.axes[0].imshow(self.target.get_img())
         for region in self.region_disp_dict.items():
-            print(region[0] + ' displayed!')
             bound = shapely.get_coordinates(self.boundaries[region[0]])
-            if region[1] == 1:
-                self.fig.axes[0].plot(bound[:,0], bound[:,1], c='white')
-            elif region[1] == 2:
-                self.fig.axes[0].plot(bound[:,0], bound[:,1], c='red')
+
+            if region[1].get() == 1:
+                self.fig.axes[0].plot(bound[:,0], bound[:,1], 'r-', lw=.75)
+        self.canvas.draw()
 
 
 

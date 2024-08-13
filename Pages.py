@@ -96,15 +96,27 @@ class STalign_Prep(Page):
         self.atlas = Atlas(atlas_name)
         self.target = Target(target_address, self.atlas)
         
-        # rotation scale
-        self.rot_scale = ttk.Scale(self.frame, from_=180, to=-180, 
-                                   orient='horizontal', length=500,
-                                   variable=self.atlas.theta_degrees,
+        # rotation scales
+        self.rot_scales = ttk.Frame(self.frame)
+        self.zrot_scale = ttk.Scale(self.rot_scales, from_=180, to=-180, 
+                                   orient='vertical', length=500,
+                                   variable=self.atlas.thetas[0],
                                    command=self.update) 
+        self.yrot_scale = ttk.Scale(self.rot_scales, from_=180, to=-180, 
+                                   orient='vertical', length=500,
+                                   variable=self.atlas.thetas[1],
+                                   command=self.update) 
+        self.xrot_scale = ttk.Scale(self.rot_scales, from_=180, to=-180, 
+                                   orient='vertical', length=500,
+                                   variable=self.atlas.thetas[2],
+                                   command=self.update)
+        self.zrot_scale.pack(side=tk.LEFT)
+        self.yrot_scale.pack(side=tk.LEFT)
+        self.xrot_scale.pack(side=tk.LEFT)
 
         #slice scale
         self.slice_scale = ttk.Scale(self.frame, from_=0, to=self.atlas.img.shape[0]-1,
-                                     orient='vertical', length=500, 
+                                     orient='horizontal', length=500, 
                                      variable=self.atlas.curr_slice,
                                      command=self.update)
 
@@ -113,8 +125,8 @@ class STalign_Prep(Page):
         self.fig.axes[1].imshow(self.target.get_img())
         self.update()
 
-        self.rot_scale.grid(row=0, column=1)
-        self.slice_scale.grid(row=1, column=0)
+        self.slice_scale.grid(row=0, column=1)
+        self.rot_scales.grid(row=1, column=0)
         self.canvas.get_tk_widget().grid(row=1, column=1)
         self.toolbar_frame.grid(row=2, column=1)
     

@@ -115,7 +115,8 @@ class STalign_Prep(Page):
         self.xrot_scale.pack(side=tk.LEFT)
 
         #slice scale
-        self.slice_scale = ttk.Scale(self.frame, from_=0, to=self.atlas.img.shape[0]-1,
+        self.slice_scale = ttk.Scale(self.frame, from_=self.atlas.pix_loc[0][0], 
+                                     to=self.atlas.pix_loc[0][-1],
                                      orient='horizontal', length=500, 
                                      variable=self.atlas.curr_slice,
                                      command=self.update)

@@ -133,9 +133,9 @@ class STalign_Prep(Page):
         self.toolbar_frame.grid(row=2, column=1)
 
     def update(self, _=None):
-        self.atlas.set_LT()
+        self.atlas.set_LT() # set L and T based on scales
         self.fig.axes[0].cla()
-        self.fig.axes[0].imshow(self.atlas.get_img(False),cmap='viridis')
+        self.fig.axes[0].imshow(self.atlas.get_img(False,True)) # get img, without segmentation and quickly
         self.fig.canvas.draw_idle()
     
     def next(self):
@@ -154,16 +154,22 @@ class Landmark_Annotator(Page):
         L-click\tmark point
         R-click\tremove point
         Enter\tsubmit point
-        Backspace\tdelete last submitted'''
+        Backspace\tdelete last submitted
+        Dbl L-click\ttoggle segmentation'''
 
         self.atlas = prev.atlas
         self.target = prev.target
-    
-        self.imgs = [self.atlas.get_img(0), self.target.get_img()]
+
+        # Get slice images without and with segmentation, full quality (quickReturn=False)
+        self.slice_img = self.atlas.get_img(False, False)
+        self.slice_seg = self.atlas.get_img(True, False)
+        self.show_seg = False
+
+        self.imgs = [self.slice_img, self.target.get_img()]
         self.extents = [self.atlas.get_extent(), self.target.get_extent()]
         self.points = [ [], [] ] # landmark points, points[0][i] in atlas corresponds with points[1][i] in target
         self.new_pt = [ [], [] ]
-        self.pt_sz = 2
+        self.pt_sz = 4
     
         #show images
         self.create_figure(1,2)
@@ -174,6 +180,7 @@ class Landmark_Annotator(Page):
 
         self.canvas.mpl_connect('button_press_event', self.onclick)
         self.canvas.mpl_connect('key_press_event',self.onpress)
+        #self.canvas.get_tk_widget().bind('<Double-1>',self.ondouble) TODO: figure out kinks
 
     def update(self, axis=None):
 
@@ -189,23 +196,26 @@ class Landmark_Annotator(Page):
         
         # plot prev selected points in white
         if len(self.points[0]): 
-            self.fig.axes[axis].scatter(np.array(self.points)[axis,:,2],
-                                        np.array(self.points)[axis,:,1], 
+            self.fig.axes[axis].scatter(np.array(self.points)[axis,:,1],
+                                        np.array(self.points)[axis,:,0], 
                                         color='white', s=self.pt_sz)
         
         self.canvas.draw()
     
+    def ondouble(self, event):
+        self.show_seg = not self.show_seg # toggle show_seg
+        if self.show_seg: self.imgs[0] = self.slice_seg
+        else: self.imgs[0] = self.slice_img
+
     def onclick(self, event):
         if event.xdata == None: return # clicked outside of axes
         ix, iy = int(event.xdata), int(event.ydata) # get x and y data of pt
-        iz = 0
         msg = ''
         
         axis = -1
         # based on where user clicked, set axis and update output msg
         if event.inaxes == self.fig.axes[0]: # user clicked atlas
             axis = 0
-            iz = self.atlas.pix_loc[0][self.atlas.curr_slice.get()] # z value corresponding to slice
             msg = "source at " + msg
         elif event.inaxes == self.fig.axes[1]: # user clicked target
             axis = 1
@@ -217,10 +227,10 @@ class Landmark_Annotator(Page):
 
         if event.button == 1: # left click means add point at mouse location
             self.fig.axes[axis].scatter([ix],[iy], color='red', s=self.pt_sz)
-            self.new_pt[axis] = [iz, iy, ix]
+            self.new_pt[axis] = [iy, ix]
             msg = 'point added to ' + msg + f'[x,y]=[{ix},{iy}]'
         elif event.button == 3: # right click means remove previously created point
-            msg = 'point removed from ' + msg + f'[x,y]={self.new_pt[axis][2:0:-1]}'
+            msg = 'point removed from ' + msg + f'[x,y]={self.new_pt[axis][::-1]}'
             self.new_pt[axis] = []
         
         print(msg)
@@ -236,14 +246,14 @@ class Landmark_Annotator(Page):
             # add new points to list, notify user, and clear out new points list
             self.points[0].append(self.new_pt[0])
             self.points[1].append(self.new_pt[1])
-            print(f"Added {self.new_pt[0][2:0:-1]} and {self.new_pt[1][2:0:-1]} to points list")
+            print(f"Added {self.new_pt[0][::-1]} and {self.new_pt[1][::-1]} to points list")
             self.new_pt[0] = []
             self.new_pt[1] = []
             self.update()
         
         if event.key == 'backspace': # backspace key used to remove recently committed point
             if len(self.points[0]) == 0: return # if no points to remove, simply return
-            print(f'Removed [{self.points[0][-1][2:0:-1]}] and [{self.points[1][-1][2:0:-1]}]') # user msg
+            print(f'Removed [{self.points[0][-1][::-1]}] and [{self.points[1][-1][::-1]}]') # user msg
             
             # remove last pair of poins
             self.points[0].pop(-1)

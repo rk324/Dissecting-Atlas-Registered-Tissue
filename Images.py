@@ -103,7 +103,7 @@ class Atlas(Image):
             seg = self.get_slice_seg(quickReturn)
             img = self.get_slice_img(quickReturn)
             return ski.segmentation.mark_boundaries(img, seg.astype('int'), 
-                                                    color=(255,0,0), mode='subpixel' 
+                                                    color=(255,0,0), mode='subpixel', 
                                                     background_label=0)
         
     def get_slice_seg(self, quickReturn=True):

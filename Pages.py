@@ -92,9 +92,10 @@ class STalign_Prep(Page):
         atlas_name = prev.atlas_name.get()
         target_address = prev.target_file_name.get()
 
-        self.header = 'Select slice and estimate rotation using sliders.'
+        self.header = 'Select slice and estimate rotations using sliders.'
         self.atlas = Atlas(atlas_name)
         self.target = Target(target_address, self.atlas)
+
         
         # rotation scales
         self.rot_scales = ttk.Frame(self.frame)
@@ -130,10 +131,11 @@ class STalign_Prep(Page):
         self.rot_scales.grid(row=1, column=0)
         self.canvas.get_tk_widget().grid(row=1, column=1)
         self.toolbar_frame.grid(row=2, column=1)
-    
+
     def update(self, _=None):
+        self.atlas.set_LT()
         self.fig.axes[0].cla()
-        self.fig.axes[0].imshow(self.atlas.get_img())
+        self.fig.axes[0].imshow(self.atlas.get_img(False),cmap='viridis')
         self.fig.canvas.draw_idle()
     
     def next(self):

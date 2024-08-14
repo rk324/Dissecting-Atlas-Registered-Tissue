@@ -31,16 +31,34 @@ class Image():
 
 class Atlas(Image):
     
+    
+    def slice_from_T (self): # approximate slice
+        return int(self.T[0]/self.pix_dim[0] + self.img.shape[0]/2)
+
     def __init__(self, atlas_name):
 
         super().__init__(atlas_name)
+        self.deg2rad = lambda deg: np.pi*deg/180 # converting degrees to radians
 
         self.curr_slice = tk.IntVar()
-        self.theta_degrees = tk.IntVar()
+        self.thetas = [tk.IntVar() for i in range(3)] #3 thetas for yaw, pitch, roll
 
-        self.curr_slice.set(int(self.img.shape[0]/2))
-        self.ds_factor = int(np.max(np.divide(self.shape[1:], [200, 300])))
-        if self.ds_factor == 0: self.ds_factor = 1
+        self.set_LT()
+        self.origin_slice = np.stack(np.meshgrid(np.zeros(1),
+                                                 1.5*self.pix_loc[1],
+                                                 1.5*self.pix_loc[2],
+                                                 indexing='ij'), -1)
+        
+        # creating downscaled copies of everything
+        dsf = int(np.max(np.divide(self.shape[1:], [200, 300]))) # downscaling factor
+        if dsf == 0: dsf = 1
+        self.img_ds = ski.transform.downscale_local_mean(self.img, (1, dsf, dsf))
+        self.pix_dim_ds = np.multiply(self.pix_dim, [1 ,dsf, dsf])
+        self.pix_loc_ds = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(self.img_ds.shape,self.pix_dim_ds)]
+        self.origin_slice_ds = np.stack(np.meshgrid(np.zeros(1),
+                                                 1.5*self.pix_loc_ds[1],
+                                                 1.5*self.pix_loc_ds[2],
+                                                 indexing='ij'), -1)
 
     def load(self, atlas_name):
         # get img and segmentation from folder
@@ -52,6 +70,9 @@ class Atlas(Image):
         if filetype == 'nii': self.load_nii(img_list)
         elif filetype == 'nrrd': self.load_nrrd(img_list)
         else: raise Exception ("Invalid atlas file type!")
+
+        self.img = np.clip(self.img, 0, self.img.max())
+        self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img))
 
     def load_nii(self, img_list):
         img = nib.load(img_list[0])
@@ -74,16 +95,83 @@ class Atlas(Image):
 
         self.pix_dim = np.diag(hdr['space directions'])
 
-    def get_img(self, theta=None, quickReturn=True):
-
-        if theta is None: theta = self.theta_degrees.get()
-        if not quickReturn: return rotate(self.img[self.curr_slice.get()], theta) # returns full atlas img
-
-        # quick return will return downscaled img (makes rotation faster)
-        return rotate(ski.transform.downscale_local_mean(self.img[self.curr_slice.get()],
-                                                         (self.ds_factor, self.ds_factor)), 
-                                                         theta)
+    def get_img(self, show_seg=True, quickReturn=True):
         
+        if not show_seg:
+            return self.get_slice_img(quickReturn)
+        else:
+            seg = self.get_slice_seg(quickReturn)
+            img = self.get_slice_img(quickReturn)
+            return ski.segmentation.mark_boundaries(img, seg.astype('int'), 
+                                                    color=(255,0,0), mode='subpixel' 
+                                                    background_label=0)
+        
+    def get_slice_seg(self, quickReturn=True):
+        if quickReturn: 
+            sampler = self.origin_slice_ds
+        else: 
+            sampler = self.origin_slice
+        
+        vol = self.labels
+        xV = self.pix_loc
+        transformed_slice = (self.L@sampler[...,None])[...,0] + self.T
+
+        return STalign.interp3D(xV, vol[None].astype('float64'), transformed_slice.transpose(3,0,1,2))[0,0,...].numpy()
+
+
+    def get_slice_img(self, quickReturn=True):
+
+        if quickReturn: 
+            sampler = self.origin_slice_ds
+            vol = self.img_ds
+            xV = self.pix_loc_ds
+        else: 
+            sampler = self.origin_slice
+            vol = self.img
+            xV = self.pix_loc
+        
+        transformed_slice = (self.L@sampler[...,None])[...,0] + self.T
+        
+        return STalign.interp3D(xV, vol[None].astype('float64'), transformed_slice.transpose(3,0,1,2))[0,0,...].numpy()
+        
+    def set_LT(self):
+        
+        # reset L and T
+        self.L = np.array([[1,0,0],
+                           [0,1,0],
+                           [0,0,1]])
+        self.T = np.array([0, 0, 0])   
+
+        # apply rotations and translations
+        self.L = self.L@self.x_rot(self.thetas[2].get())
+        self.L = self.L@self.y_rot(self.thetas[1].get())
+        self.L = self.L@self.z_rot(self.thetas[0].get())
+        self.T[0] += self.curr_slice.get()
+
+    def z_rot(self, deg):
+        rads = self.deg2rad(deg)
+        return np.array([
+                            [1,       0     ,       0      ],
+                            [0, np.cos(rads), -np.sin(rads)],
+                            [0, np.sin(rads), np.cos(rads) ]
+                        ])
+
+    def y_rot(self, deg):
+        rads = self.deg2rad(deg)
+        return np.array([
+                            [ np.cos(rads), 0, np.sin(rads)],
+                            [        0    , 1,     0       ],
+                            [-np.sin(rads), 0, np.cos(rads)]
+                        ])
+
+    def x_rot(self, deg):
+        rads = self.deg2rad(deg)
+        return np.array([
+                            [np.cos(rads), -np.sin(rads), 0],
+                            [np.sin(rads),  np.cos(rads), 0],
+                            [       0      ,        0   , 1]
+                        ])
+
 class Target(Image): 
 
     def __init__(self, filename, src):

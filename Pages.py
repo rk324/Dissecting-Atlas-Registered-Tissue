@@ -275,26 +275,26 @@ class STalign_Runner(Page):
         self.points = prev.points
 
         W = self.target.img
-        A = self.atlas.img
+        A = self.atlas.img # TODO: add feature to enable quick run wherein we use downsampled atlas and target
         xI = self.atlas.pix_loc
         xJ = self.target.pix_loc
         slice = self.atlas.curr_slice.get()
 
         scale_x = 1
-        scale_y = 2
-        scale_z = 3
-        theta = torch.tensor((np.pi/180)*self.atlas.theta_degrees.get()) 
+        scale_y = 1
+        scale_z = 1
+
+        # set device if cuda if possible
+        self.device = 'cpu'
+        if torch.cuda.is_available(): self.device = 'cuda'
 
         self.J = W[None] / np.mean(np.abs(W))
         self.I = A[None] / np.mean(np.abs(A), keepdims=True)
         self.I = np.concatenate((self.I, (self.I - np.mean(self.I))**2))
 
-        self.T = np.array([-xI[0][slice], np.mean(xJ[0]), np.mean(xJ[1])])
-        rot_matrix = np.array([ [1.0,           0.0,            0.0],
-                                [0.0, np.cos(theta), -np.sin(theta)],
-                                [0.0, np.sin(theta),  np.cos(theta)] ])
         scale_matrix = np.diagflat([scale_z, scale_y, scale_x])
-        self.L = np.matmul(rot_matrix, scale_matrix)
+        self.T = -self.atlas.T
+        self.L = np.linalg.inv(self.atlas.L)
 
         int_checker = self.frame.register(self.isInt)
 

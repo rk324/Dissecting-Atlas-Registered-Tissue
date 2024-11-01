@@ -62,7 +62,7 @@ class Atlas(Image):
 
     def load(self, atlas_name):
         # get img and segmentation from folder
-        path = f'Data\\Atlases\\{atlas_name}'
+        path = f'..\\Data\\Atlases\\{atlas_name}'
         img_list = [f'{path}\\{name}' for name in os.listdir(path)]
         filetype = img_list[0][img_list[0].index('.')+1:] # TODO: find a better way to get file extension
 

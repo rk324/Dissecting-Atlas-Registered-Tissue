@@ -180,7 +180,8 @@ class Landmark_Annotator(Page):
 
         self.canvas.mpl_connect('button_press_event', self.onclick)
         self.canvas.mpl_connect('key_press_event',self.onpress)
-        #self.canvas.get_tk_widget().bind('<Double-1>',self.ondouble) TODO: figure out kinks
+        self.canvas.get_tk_widget().bind('<Double-1>',self.ondouble)
+
 
     def update(self, axis=None):
 
@@ -199,13 +200,24 @@ class Landmark_Annotator(Page):
             self.fig.axes[axis].scatter(np.array(self.points)[axis,:,1],
                                         np.array(self.points)[axis,:,0], 
                                         color='white', s=self.pt_sz)
-        
+        # plot current new point in red
+        if len(self.new_pt[0]):
+            print(self.new_pt)
+            self.fig.axes[axis].scatter(self.new_pt[axis][1],self.new_pt[axis][0], 
+                                        color='red', s=self.pt_sz)
+
+
         self.canvas.draw()
     
     def ondouble(self, event):
         self.show_seg = not self.show_seg # toggle show_seg
-        if self.show_seg: self.imgs[0] = self.slice_seg
-        else: self.imgs[0] = self.slice_img
+        if self.show_seg: 
+            self.imgs[0] = self.slice_seg
+            print("showing segmentation")
+        else: 
+            self.imgs[0] = self.slice_img
+            print("hiding segmentation")
+        self.update(0)
 
     def onclick(self, event):
         if event.xdata == None: return # clicked outside of axes
@@ -221,20 +233,17 @@ class Landmark_Annotator(Page):
             axis = 1
             msg = "target at " + msg
         else: print("ERROR: clicked outside axes")
-        
-        # update that axis to clear out uncomitted pts
-        self.update(axis)
-
+    
         if event.button == 1: # left click means add point at mouse location
-            self.fig.axes[axis].scatter([ix],[iy], color='red', s=self.pt_sz)
+            #self.fig.axes[axis].scatter([ix],[iy], color='red', s=self.pt_sz)
             self.new_pt[axis] = [iy, ix]
             msg = 'point added to ' + msg + f'[x,y]=[{ix},{iy}]'
         elif event.button == 3: # right click means remove previously created point
             msg = 'point removed from ' + msg + f'[x,y]={self.new_pt[axis][::-1]}'
             self.new_pt[axis] = []
-        
+
+        self.update(axis)
         print(msg)
-        self.canvas.draw()
 
     def onpress(self, event):
         if event.key == 'enter': # enter key used to commit selected points to points list
@@ -414,6 +423,7 @@ class Boundary_Generator(Page):
         vol = self.atlas.labels
         xL = self.atlas.pix_loc
         xJ = self.target.pix_loc
+        print(f'xJ: {xJ}')
 
         # next chose points to sample on
         res = 10.0
@@ -508,6 +518,10 @@ class Boundary_Generator(Page):
     def update(self):
         self.fig.axes[0].cla()
         self.fig.axes[0].imshow(self.target.get_img())
+        #ski.transform.resize(np.pad(self.target.get_img(), ((234,),(394,))), [235.8032112, 330.80955089]))
+        # TODO: ACTUALLY IMPLEMENT THE ADAPTIVE SIZING AND GET RID OF THIS ^^^
+        print(self.region_graph.shape)
+        print(self.target.get_img().shape)
         for region in self.region_disp_dict.items():
             bound = shapely.get_coordinates(self.boundaries[region[0]])
 

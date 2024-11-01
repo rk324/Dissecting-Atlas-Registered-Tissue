@@ -116,8 +116,9 @@ class Atlas(Image):
         xV = self.pix_loc
         transformed_slice = (self.L@sampler[...,None])[...,0] + self.T
 
-        return STalign.interp3D(xV, vol[None].astype('float64'), transformed_slice.transpose(3,0,1,2))[0,0,...].numpy()
-
+        return STalign.interp3D(xV, vol[None].astype('float64'), 
+                                transformed_slice.transpose(3,0,1,2),
+                                mode='nearest')[0,0,...].numpy()
 
     def get_slice_img(self, quickReturn=True):
 
@@ -132,7 +133,8 @@ class Atlas(Image):
         
         transformed_slice = (self.L@sampler[...,None])[...,0] + self.T
         
-        return STalign.interp3D(xV, vol[None].astype('float64'), transformed_slice.transpose(3,0,1,2))[0,0,...].numpy()
+        return STalign.interp3D(xV, vol[None].astype('float64'), 
+                                transformed_slice.transpose(3,0,1,2))[0,0,...].numpy()
         
     def set_LT(self):
         
@@ -181,10 +183,11 @@ class Target(Image):
 
     def load(self, filename):
         
-        self.pix_dim = self.src_atlas.pix_dim[1:]
+        self.pix_dim = self.src_atlas.pix_dim[1:] # TODO: attempt to read this in from meta data -> if not present, promp user
         # TODO: rescaling/downscaling image + padding based on how 
         # much of img is the actual slice
         W = ski.io.imread(filename)
+        self.orig_img = W.copy()
         
         if len(W.shape)==3 and W.shape[-1]==3: # grayscale img if rgb
             W = ski.color.rgb2gray(W)

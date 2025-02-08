@@ -39,7 +39,7 @@ class Page:
     def deactivate(self):
         self.frame.grid_forget()
     
-    # just in case gets called in a child class that doesnt havea definition for it
+    # just in case gets called in a child class that doesnt have a definition for it
     def previous(self): pass
     def next(self): pass
 
@@ -51,7 +51,7 @@ class Starter(Page):
         self.header='Select atlas and target image'
 
         self.atlas_name = tk.StringVar()
-        atlases = [name for name in os.listdir('Data\\Atlases')]
+        atlases = [name for name in os.listdir(r'atlases')]
         atlas_picker_label = ttk.Label(self.frame,text="Atlas:")
         atlas_picker_combo = ttk.Combobox(self.frame,values=atlases, state='readonly',
                                           textvariable=self.atlas_name)

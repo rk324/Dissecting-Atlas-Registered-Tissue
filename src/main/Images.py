@@ -7,7 +7,7 @@ import numpy as np
 import skimage as ski
 import os
 from scipy.ndimage import rotate
-from STalign import STalign
+import STalign
 
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
@@ -62,7 +62,7 @@ class Atlas(Image):
 
     def load(self, atlas_name):
         # get img and segmentation from folder
-        path = f'..\\Data\\Atlases\\{atlas_name}'
+        path = f'atlases\\{atlas_name}'
         img_list = [f'{path}\\{name}' for name in os.listdir(path)]
         filetype = img_list[0][img_list[0].index('.')+1:] # TODO: find a better way to get file extension
 

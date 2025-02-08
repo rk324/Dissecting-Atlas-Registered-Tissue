@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import os
-#from Image import Image
+from images import Atlas, Slide
 #from Atlas import Atlas
 from Pages import *
 
@@ -15,10 +15,11 @@ class App(tk.Tk):
         # TODO: template Slide class, adjust Atlas class
 
         self.slides: list[Slide] = []
-        self.atlas = Atlas()
+        self.ref_atlas = {"full size": Atlas(), "downscaled": Atlas()}
+        self.label_atlas = {"full size": Atlas(), "downscaled": Atlas()}
 
         page_list: tuple[Page] = (Starter,STalign_Prep)
-        self.pages: list[Page] = [page(self.main_window, self.slides, self.atlas) for page in page_list] # initalize each page in here with self.main_window as parent
+        self.pages: list[Page] = [page(self.main_window, self.slides, self.ref_atlas, self.label_atlas) for page in page_list] # initalize each page in here with self.main_window as parent
         self.page_index = 0
 
         self.mainloop()

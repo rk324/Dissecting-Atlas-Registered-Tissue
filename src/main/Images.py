@@ -17,7 +17,7 @@ NavigationToolbar2Tk)
 from abc import ABC, abstractmethod
 
 class Image(ABC):
-    
+
     def __init__(self):
         self.pix_dim = None
         self.pix_loc = None
@@ -38,48 +38,19 @@ class Image(ABC):
 
 class Atlas(Image):
     
-    
     def slice_from_T (self): # approximate slice
         return int(self.T[0]/self.pix_dim[0] + self.img.shape[0]/2)
 
-    def __init__(self, path):
+    def __init__(self):
+        super().__init__()
+        self.img = None
 
-        super().__init__(path)
-        self.deg2rad = lambda deg: np.pi*deg/180 # converting degrees to radians
-
-        self.curr_slice = tk.IntVar()
-        self.thetas = [tk.IntVar() for i in range(3)] #3 thetas for yaw, pitch, roll
-
-        self.set_LT()
-        self.origin_slice = np.stack(np.meshgrid(np.zeros(1),
-                                                 1.5*self.pix_loc[1],
-                                                 1.5*self.pix_loc[2],
-                                                 indexing='ij'), -1)
-        
-        # creating downscaled copies of everything
-        dsf = int(np.max(np.divide(self.shape[1:], [200, 300]))) # downscaling factor
-        if dsf == 0: dsf = 1
-        self.img_ds = ski.transform.downscale_local_mean(self.img, (1, dsf, dsf))
-        self.pix_dim_ds = np.multiply(self.pix_dim, [1 ,dsf, dsf])
-        self.pix_loc_ds = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(self.img_ds.shape,self.pix_dim_ds)]
-        self.origin_slice_ds = np.stack(np.meshgrid(np.zeros(1),
-                                                 1.5*self.pix_loc_ds[1],
-                                                 1.5*self.pix_loc_ds[2],
-                                                 indexing='ij'), -1)
-
-    def load(self, filename):
-        # get img and segmentation from folder
-        path = f'atlases\\{atlas_name}'
-        img_list = [f'{path}\\{name}' for name in os.listdir(path)]
-        filetype = img_list[0][img_list[0].index('.')+1:] # TODO: find a better way to get file extension
-
-        # file opening based on filetype
-        if filetype == 'nii': self.load_nii(img_list)
-        elif filetype == 'nrrd': self.load_nrrd(img_list)
-        else: raise Exception ("Invalid atlas file type!")
-
-        self.img = np.clip(self.img, 0, self.img.max())
-        self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img))
+    def load_img(self, img_data, pix_dim):
+        self.img = img_data
+        self.pix_dim = pix_dim
+        self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
+        self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img)) # normalize
+        super().load()
 
     def load_nii(self, img_list):
         img = nib.load(img_list[0])
@@ -102,16 +73,12 @@ class Atlas(Image):
 
         self.pix_dim = np.diag(hdr['space directions'])
 
-    def get_img(self, show_seg=True, quickReturn=True):
-        
-        if not show_seg:
-            return self.get_slice_img(quickReturn)
-        else:
-            seg = self.get_slice_seg(quickReturn)
-            img = self.get_slice_img(quickReturn)
-            return ski.segmentation.mark_boundaries(img, seg.astype('int'), 
-                                                    color=(255,0,0), mode='subpixel', 
-                                                    background_label=0)
+    def get_img(self, sample_mesh):
+        return STalign.interp3D(
+            self.pix_loc, 
+            self.img[None].astype('float64'), 
+            sample_mesh.transpose(3,0,1,2)
+            )[0,0,...].numpy()
         
     def get_slice_seg(self, quickReturn=True):
         if quickReturn: 

@@ -14,20 +14,27 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
 NavigationToolbar2Tk)
 
-class Image():
+from abc import ABC, abstractmethod
 
-    def __init__(self, img_name): 
-        self.load(img_name)
+class Image(ABC):
+    
+    def __init__(self):
+        self.pix_dim = None
+        self.pix_loc = None
+        self.shape = None
+    
+    @abstractmethod
+    def load(self, path):
         self.shape = self.img.shape
         self.pix_loc = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(self.shape,self.pix_dim)]
-        print(f'uploaded img w shape {self.shape}')
-    
-    def load(self, img_name):
         pass
 
-    def get_img(self): return self.img
+    @abstractmethod
+    def get_img(self): 
+        return self.img
+    
     def get_extent(self):
-        return STalign.extent_from_x(self.pix_loc[-1:-3:-1][::-1])
+        return STalign.extent_from_x(self.pix_loc[-2:])
 
 class Atlas(Image):
     
@@ -35,9 +42,9 @@ class Atlas(Image):
     def slice_from_T (self): # approximate slice
         return int(self.T[0]/self.pix_dim[0] + self.img.shape[0]/2)
 
-    def __init__(self, atlas_name):
+    def __init__(self, path):
 
-        super().__init__(atlas_name)
+        super().__init__(path)
         self.deg2rad = lambda deg: np.pi*deg/180 # converting degrees to radians
 
         self.curr_slice = tk.IntVar()
@@ -60,7 +67,7 @@ class Atlas(Image):
                                                  1.5*self.pix_loc_ds[2],
                                                  indexing='ij'), -1)
 
-    def load(self, atlas_name):
+    def load(self, filename):
         # get img and segmentation from folder
         path = f'atlases\\{atlas_name}'
         img_list = [f'{path}\\{name}' for name in os.listdir(path)]

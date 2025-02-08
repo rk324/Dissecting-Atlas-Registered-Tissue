@@ -4,7 +4,6 @@ import os
 #from Image import Image
 #from Atlas import Atlas
 from Pages import *
-from abc import ABC
 
 class App(tk.Tk):
     def __init__(self):

@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import os
-from Images import *
+from images import *
 import torch
 import shapely
 import pandas as pd
@@ -11,16 +11,27 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
 NavigationToolbar2Tk)
 
+from abc import ABC, abstractmethod
+
 import pickle #TODO: remove if not using anymore
 
-class Page:
+class Page(tk.Frame, ABC):
 
-    def __init__(self,master):
-        self.frame = ttk.Frame(master)
-        self.master = master
+    def __init__(self, master, slides, atlases):
+        super().__init__(master)
 
-        self.header = ''
-    
+        self.slides = slides
+        self.atl
+        self.header = ""
+        self.create_widgets()
+        self.show_widgets()
+
+    @abstractmethod
+    def create_widgets(self): pass
+
+    @abstractmethod
+    def show_widgets(self): pass
+
     def create_figure(self, num_rows, num_cols):
         
         # create plots with specified dimensions
@@ -34,28 +45,56 @@ class Page:
         toolbar.update()
 
     def activate(self):
-        self.frame.grid(row=1, column=0)
+        self.pack(expand=True)
     
     def deactivate(self):
-        self.frame.grid_forget()
+        self.pack_forget()
     
+    @abstractmethod
+    def done(self):
+        self.deactivate()
+
+    @abstractmethod
+    def cancel(self):
+        self.deactivate()
+
+    def get_header(self):
+        return self.header
+
     # just in case gets called in a child class that doesnt have a definition for it
     def previous(self): pass
     def next(self): pass
 
 class Starter(Page):
 
-    def __init__(self, master):
+    def __init__(self, master, slides, atlases):
 
-        super().__init__(master)
+        super().__init__(master, slides, atlases)
         self.header='Select atlas and target image'
+        self.create_widgets()
+        self.show_widgets()
+    
+    def create_widgets(self):
+        # Atlas Picker
+        self.atlas_name = tk.StringVar(master=self, value="Choose Atlas")
+        atlases = os.listdir(r'atlases')
+        self.atlas_picker_label = ttk.Label(self, text="Atlas:")
+        self.atlas_picker_combobox = ttk.Combobx(
+            master=self, 
+            values=atlases,
+            state='readonly',
+            textvariable=self.atlas_name
+        )
 
-        self.atlas_name = tk.StringVar()
-        atlases = [name for name in os.listdir(r'atlases')]
-        atlas_picker_label = ttk.Label(self.frame,text="Atlas:")
-        atlas_picker_combo = ttk.Combobox(self.frame,values=atlases, state='readonly',
-                                          textvariable=self.atlas_name)
-        atlas_picker_combo.set("Choose Atlas")
+        # Slides Picker
+        self.slide_picker_label = ttk.Label(self, text="Samples:")
+
+    def show_widgets(self):
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=2)
+        self.grid_columnconfigure(2, weight=1)
+
+    def ignore(self):
 
         self.target_file_name = tk.StringVar()
         target_picker_label = ttk.Label(self.frame,text="Target:")

@@ -5,6 +5,8 @@ import nibabel as nib
 import nrrd
 import numpy as np
 import skimage as ski
+import PIL
+import shapely
 import os
 from scipy.ndimage import rotate
 import STalign
@@ -14,27 +16,20 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
 NavigationToolbar2Tk)
 
-from abc import ABC, abstractmethod
-
-class Image(ABC):
+class Image():
 
     def __init__(self):
         self.pix_dim = None
         self.pix_loc = None
         self.shape = None
     
-    @abstractmethod
     def load_img(self):
-        """
-        Image implementation of load_img() sets **shape** and **pix_loc** properties.
-        Assumes **img** and **pix_dim** properties have already been defined.
-        """
-        self.shape = self.img.shape
+        pass
+    
+    def set_pix_loc(self):
         self.pix_loc = [np.arange(n)*d - (n-1)*d/2.0 
                         for n,d in zip(self.shape,self.pix_dim)]
-        pass
 
-    @abstractmethod
     def get_img(self): 
         return self.img.copy()
     
@@ -59,7 +54,8 @@ class Atlas(Image):
         self.pix_dim = pix_dim
         self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
         self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img)) # normalize
-        super().load_img()
+        self.shape = self.img.shape
+        self.set_pix_loc()
 
     def load_nii(self, img_list):
         img = nib.load(img_list[0])
@@ -173,14 +169,15 @@ class Target(Image):
         self.L_estim = np.eye(3)
         
         # Image Estimations using Affine Properties and Atlas
-        self.seg_estim = None
-        self.img_slice_estim = None
+        self.seg_estim = Image()
+        self.img_estim = Image()
 
         # Landmark Points
         self.landmarks = {
             "target": [],
             "atlas": []
         }
+        self.num_landmarks = 0
         
         # Initialize Segmentations
         self.seg_stalign = None
@@ -215,7 +212,34 @@ class Target(Image):
             self.img = 1-self.img
 
         self.pix_dim = pix_dim
-        super().load_img()
+        self.shape = self.img.shape
+        self.set_pix_loc()
+
+
+    def estimate_pix_dim(self, threshold):
+        """
+        Estimates **pix_dim** by determining area of tissue in 
+        **img_estim** and in **img**. The ratio between these
+        areas is the square of the ratio between their **pix_dim**s. Since
+        **pix_dim** of the atlas is known, the target's **pix_dim** can be
+        estimated.
+        """
+
+        # contour function returns contour of the tissue
+        def contour (image):
+            contours = ski.measure.find_contours(image, threshold)
+            return sorted(contours, key=lambda c: shapely.Polygon(c).area)[-1]
+        
+        # create contour of in both images
+        contour_target = contour(self.img)
+        contour_atlas = contour(self.img_estim.get_img())
+
+        # get areas of contours
+        area_target = shapely.Polygon(contour_target).area
+        area_atlas = shapely.Polygon(contour_atlas).area
+
+        scale = np.sqrt(area_target / area_atlas)
+        return np.divide(self.img_estim.pix_dim, scale)
 
     def get_img(self, estimate=True, color=(255,255,255), mode='thick'):
         """
@@ -226,7 +250,7 @@ class Target(Image):
         **estimate** parameter.
         """
         if estimate:
-            image = self.img_slice_estim
+            image = self.img_estim
             segmentation = self.seg_estim
         else:
             image = self.img_downscaled
@@ -245,16 +269,25 @@ class Target(Image):
     def add_landmarks(self, target_point, atlas_point):
         self.landmarks['target'].append(target_point)
         self.landmarks['atlas'].append(atlas_point)
+        self.num_landmarks += 1
+    
+    def remove_landmarks(self):
+        if self.num_landmarks > 0:
+            self.landmarks['target'].pop(-1)
+            self.landmarks['atlas'].pop(-1)
+            self.num_landmarks -= 1
+            
 
 class Slide(Image):
 
-    def __init__(self, img_data, pix_dim):
+    def __init__(self, filename):
         super().init()
-        self.load_img(img_data, pix_dim)
+        self.load_img(filename)
         self.targets: list[Target] = []
         self.num_targets = 0
 
         self.calibration_points = []
+        self.num_calibration_points = 0
         
         self.stalign_params = {
             'timesteps': 12,
@@ -265,11 +298,18 @@ class Slide(Image):
             'resolution': 250
         }
 
-    def load_img(self, img_data, pix_dim):
-        self.img = img_data
-        self.pix_dim = pix_dim
-        super().load_img()
+    def load_img(self, filename):
+        self.img = PIL.Image.open(filename)
+        self.shape = self.img.shape
     
+    def estimate_pix_dim(self):
+        target_pix_locs = [t.estimate_pix_dim() for t in self.targets]
+        self.pix_dim = np.average(target_pix_locs,axis=0)
+        super().set_pix_loc()
+        for t in self.targets:
+            t.pix_dim = self.pix_dim
+            t.set_pix_loc()
+
     def add_target(self, x, y, height, width, ds_factor=1):
         '''
         Creates Target and adds to **targets** by cropping image 
@@ -282,4 +322,14 @@ class Slide(Image):
         self.targets.append(new_target)
         self.num_targets += 1
 
-               
+    def add_calibration_point(self, point):
+        if self.num_calibration_points < 3:
+            self.calibration_points.append(point)
+            self.num_calibration_points += 1
+        else: raise Exception("Cannot have more than 3 Calibration points")
+
+    def remove_calibration_point(self, point):
+        if self.num_calibration_points > 0:
+            self.calibration_points.pop(-1)
+            self.num_calibration_points -= 1
+        else: raise Exception("No Calibration Points to remove")

@@ -22,11 +22,23 @@ class Image():
         self.pix_dim = None
         self.pix_loc = None
         self.shape = None
+        self.img = None
+
+    def load_img(self, img):
+        self.img = img
+        self.shape = self.img.shape
     
-    def load_img(self):
-        pass
-    
+    def set_pix_dim(self, pix_dim):
+        if len(pix_dim) != len(self.shape):
+            raise Exception(f"""
+                Error: pix_dim array has {len(pix_dim)} values, but
+                Image instance has {len(self.shape)} dimensions. 
+            """)
+        self.pix_dim = pix_dim
+
     def set_pix_loc(self):
+        if self.pix_dim is None: 
+            raise Exception("Cannot set pix_loc until pix_dim is set")
         self.pix_loc = [np.arange(n)*d - (n-1)*d/2.0 
                         for n,d in zip(self.shape,self.pix_dim)]
 
@@ -43,40 +55,45 @@ class Atlas(Image):
 
     def __init__(self):
         super().__init__()
-        self.img = None
 
-    def load_img(self, img_data, pix_dim):
+    def load_img(self, path: str):
         """
-        Atlas implementation of load_img() sets **img** and **pix_dim** properties,
-        and clips and normalizes image data.
+        Atlas implementation of load_img() reads in image data and pixel 
+        dimension from provided filename. Sets **img** and **pix_dim** 
+        properties, and clips and normalizes image data.
+
+        Currently compatible with nrrd and nifti file types
         """
-        self.img = img_data
-        self.pix_dim = pix_dim
+        if path.endswith('.nrrd'): 
+            self.img, self.pix_dim = Atlas.load_nrrd(path)
+        elif path.endswith(['.nii','.nii.gz']):
+            self.img, self.pix_dim = Atlas.load_nii(path)
+        else:
+            raise Exception(f'File type of {path} not supported.')
+        
+        self.shape = self.img.shape
         self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
         self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img)) # normalize
-        self.shape = self.img.shape
         self.set_pix_loc()
 
-    def load_nii(self, img_list):
-        img = nib.load(img_list[0])
-        labels = nib.load(img_list[1])
+    def load_nii(path: str):
+        img = nib.load(path)
         
         # ensuring atlas data follows format of slice-row-col indexing
         nii_processor = lambda nii: np.flip(np.transpose(nii.get_fdata(), (1,2,0)), axis=(0,1))
-        self.img = nii_processor(img)
-        self.labels = nii_processor(labels)
+        img_data = nii_processor(img)
 
         #setting pixdim in microns
         if img.header['xyzt_units'] < 1 or img.header['xyzt_units'] > 3:
             raise Exception("Error: atlas not well formatted")
         pix_multi = 1000**(3-img.header['xyzt_units'])
-        self.pix_dim = np.roll(img.header['pixdim'][1:4],2)*pix_multi
+        pix_dim = np.roll(img.header['pixdim'][1:4],2)*pix_multi
+        return img_data, pix_dim
     
-    def load_nrrd(self, img_list):
-        self.img,_ = nrrd.read(img_list[0])
-        self.labels,hdr = nrrd.read(img_list[1])
-
-        self.pix_dim = np.diag(hdr['space directions'])
+    def load_nrrd(path: str):
+        img_data, header = nrrd.read(path)
+        pix_dim = np.diag(header['space directions'])
+        return img_data, pix_dim
 
     def get_img(self, sample_mesh):
         return STalign.interp3D(

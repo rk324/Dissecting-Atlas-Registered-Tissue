@@ -215,7 +215,6 @@ class Target(Image):
         self.shape = self.img.shape
         self.set_pix_loc()
 
-
     def estimate_pix_dim(self, threshold):
         """
         Estimates **pix_dim** by determining area of tissue in 
@@ -250,8 +249,8 @@ class Target(Image):
         **estimate** parameter.
         """
         if estimate:
-            image = self.img_estim
-            segmentation = self.seg_estim
+            image = self.img_estim.get_img()
+            segmentation = self.seg_estim.get_img()
         else:
             image = self.img_downscaled
             segmentation = self.seg_visualign

@@ -251,9 +251,12 @@ class Slide(Image):
     def __init__(self, img_data, pix_dim):
         super().init()
         self.load_img(img_data, pix_dim)
-        targets: list[Target] = []
-        num_targets = 0
-        stalign_params = {
+        self.targets: list[Target] = []
+        self.num_targets = 0
+
+        self.calibration_points = []
+        
+        self.stalign_params = {
             'timesteps': 12,
             'iterations': 100,
             'sigmaM': 0.5,
@@ -266,4 +269,17 @@ class Slide(Image):
         self.img = img_data
         self.pix_dim = pix_dim
         super().load_img()
+    
+    def add_target(self, x, y, height, width, ds_factor=1):
+        '''
+        Creates Target and adds to **targets** by cropping image 
+        data with top-left corner coordinates specified by **x** 
+        and **y** and with dimensions specified by **height** and 
+        **width**
+        '''
+        img_data = self.img[y : y+height, x : x+width]
+        new_target = Target(img_data, self.pix_dim, x, y, ds_factor)
+        self.targets.append(new_target)
+        self.num_targets += 1
+
                

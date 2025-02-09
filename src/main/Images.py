@@ -24,14 +24,19 @@ class Image(ABC):
         self.shape = None
     
     @abstractmethod
-    def load(self, path):
+    def load_img(self):
+        """
+        Image implementation of load_img() sets **shape** and **pix_loc** properties.
+        Assumes **img** and **pix_dim** properties have already been defined.
+        """
         self.shape = self.img.shape
-        self.pix_loc = [np.arange(n)*d - (n-1)*d/2.0 for n,d in zip(self.shape,self.pix_dim)]
+        self.pix_loc = [np.arange(n)*d - (n-1)*d/2.0 
+                        for n,d in zip(self.shape,self.pix_dim)]
         pass
 
     @abstractmethod
     def get_img(self): 
-        return self.img
+        return self.img.copy()
     
     def get_extent(self):
         return STalign.extent_from_x(self.pix_loc[-2:])
@@ -46,11 +51,15 @@ class Atlas(Image):
         self.img = None
 
     def load_img(self, img_data, pix_dim):
+        """
+        Atlas implementation of load_img() sets **img** and **pix_dim** properties,
+        and clips and normalizes image data.
+        """
         self.img = img_data
         self.pix_dim = pix_dim
         self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
         self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img)) # normalize
-        super().load()
+        super().load_img()
 
     def load_nii(self, img_list):
         img = nib.load(img_list[0])
@@ -150,34 +159,111 @@ class Atlas(Image):
 
 class Target(Image): 
 
-    def __init__(self, filename, src):
-        
-        self.src_atlas = src
-        super().__init__(filename)
+    def __init__(self, img_data, pix_dim, x, y, ds_factor=1):
+        super().__init__()
+        self.load_img(img_data, pix_dim, ds_factor)
 
-    def load(self, filename):
+        # Location properties
+        self.x_offset = x
+        self.y_offset = y
+
+        # Affine Estimation Properties
+        self.thetas = np.array([0, 0, 0]) # z, y, x order
+        self.T_estim = np.array([0, 0, 0]) # z, y, x order 
+        self.L_estim = np.eye(3)
         
-        self.pix_dim = self.src_atlas.pix_dim[1:] # TODO: attempt to read this in from meta data -> if not present, promp user
-        # TODO: rescaling/downscaling image + padding based on how 
-        # much of img is the actual slice
-        W = ski.io.imread(filename)
-        self.orig_img = W.copy()
+        # Image Estimations using Affine Properties and Atlas
+        self.seg_estim = None
+        self.img_slice_estim = None
+
+        # Landmark Points
+        self.landmarks = {
+            "target": [],
+            "atlas": []
+        }
         
-        if len(W.shape)==3 and W.shape[-1]==3: # grayscale img if rgb
-            W = ski.color.rgb2gray(W)
-        
-        # eliminating extra channels 
-        # (assuming relavant information is in last two axes)
-        for _ in range(len(W.shape)-2): W = W[0] 
-        
+        # Initialize Segmentations
+        self.seg_stalign = None
+        self.seg_visualign = None
+
+    def load_img(self, raw_img_data, pix_dim, ds_factor):
+        """
+        Target implementation of load_img() saves original, downscaled, and 
+        preprocess images as **img_original**, **img_donwscaled**, and **img**
+        respectively. Also sets pix_dim.
+        """
+        self.img_original = raw_img_data.copy()
+        original_shape = self.img_original.shape
+        ds_tuple = (ds_factor if i<2 else 1 
+                    for i in range(len(original_shape)))
+
+        self.img_downscaled = ski.transform.downscale_local_mean(
+            self.img_original,
+            ds_tuple
+        )
+
+        self.img = self.img_downscaled.copy()
+        if len(original_shape)==3:
+            if original_shape[-1]==3:
+                self.img = ski.color.rgb2gray(self.img)
+            if original_shape[-1]==4:
+                self.img = ski.color.rgba2rgb(self.img)
+                self.img = ski.color.rgb2gray(self.img)
+
         # invert colors if more pixels at full intensity than at 0
-        if np.count_nonzero(W==1) > np.count_nonzero(W==0): W = 1-W
+        if np.count_nonzero(self.img==1) > np.count_nonzero(self.img==0):
+            self.img = 1-self.img
 
-        # downscale to general shape of atlas TODO: accomodate for rotation
-        ds_factor = int(np.max(W.shape) / np.max(self.src_atlas.shape))
-        if ds_factor == 0: ds_factor = 1
-        W = ski.transform.downscale_local_mean(W, (ds_factor, ds_factor))
+        self.pix_dim = pix_dim
+        super().load_img()
 
-        W = (W - np.min(W)) / (np.max(W) - np.min(W)) # normalizing img
+    def get_img(self, estimate=True, color=(255,255,255), mode='thick'):
+        """
+        Target implementation of get_img(), used exclusively to get target
+        image with all region boundaries marked. Client can request the
+        estimated (before stalign and visualign) marked image or the
+        aligned (after stalign and visualign) marked image using the
+        **estimate** parameter.
+        """
+        if estimate:
+            image = self.img_slice_estim
+            segmentation = self.seg_estim
+        else:
+            image = self.img_downscaled
+            segmentation = self.seg_visualign
+        
+        if image is None or segmentation is None: return None
+        else:
+            return ski.segmentation.mark_boundaries(
+                image,
+                segmentation.astype('int'),
+                color=color,
+                mode=mode,
+                background_label=0
+            )
 
-        self.img = W
+    def add_landmarks(self, target_point, atlas_point):
+        self.landmarks['target'].append(target_point)
+        self.landmarks['atlas'].append(atlas_point)
+
+class Slide(Image):
+
+    def __init__(self, img_data, pix_dim):
+        super().init()
+        self.load_img(img_data, pix_dim)
+        targets: list[Target] = []
+        num_targets = 0
+        stalign_params = {
+            'timesteps': 12,
+            'iterations': 100,
+            'sigmaM': 0.5,
+            'sigmaP': 1,
+            'sigmaR': 1e8,
+            'resolution': 250
+        }
+
+    def load_img(self, img_data, pix_dim):
+        self.img = img_data
+        self.pix_dim = pix_dim
+        super().load_img()
+               

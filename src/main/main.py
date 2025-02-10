@@ -2,8 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 import os
 from images import Atlas, Slide
-#from Atlas import Atlas
 from pages import *
+from constants import *
 
 class App(tk.Tk):
     def __init__(self):
@@ -14,10 +14,10 @@ class App(tk.Tk):
 
         self.slides: list[Slide] = []
         self.atlases = {
-            'full size reference': Atlas(),
-            'downscaled reference': Atlas(),
-            'full size label': Atlas(),
-            'downscaled label': Atlas(),
+            FSR: Atlas(),
+            DSR: Atlas(),
+            FSL: Atlas(),
+            DSL: Atlas(),
             'names': None
         }
 
@@ -41,7 +41,7 @@ class App(tk.Tk):
         self.main_window.pack(expand=True, fill=tk.BOTH)
         self.page_label.pack(fill=tk.X)
 
-        self.nav_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.nav_bar.pack(side=tk.BOTTOM)
         self.prev_btn.pack(side=tk.LEFT)
         self.next_btn.pack(side=tk.RIGHT)
     
@@ -50,7 +50,7 @@ class App(tk.Tk):
             self.destroy()
             return
 
-        self.pages[self.page_index].deactivate()
+        self.pages[self.page_index].done()
         self.page_index += 1
         self.update()
 
@@ -59,7 +59,7 @@ class App(tk.Tk):
             self.destroy()
             return
         
-        self.pages[self.page_index].deactivate()
+        self.pages[self.page_index].cancel()
         self.page_index -= 1
         self.update()
     

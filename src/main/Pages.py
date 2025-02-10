@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import os
 from images import *
+from constants import *
 import torch
 import shapely
 import pandas as pd
@@ -21,7 +22,7 @@ class Page(tk.Frame, ABC):
         super().__init__(master)
 
         self.slides = slides
-        self.atl
+        self.atlases = atlases
         self.header = ""
         self.create_widgets()
         self.show_widgets()
@@ -45,7 +46,7 @@ class Page(tk.Frame, ABC):
         toolbar.update()
 
     def activate(self):
-        self.pack(expand=True)
+        self.pack(expand=True, fill=tk.BOTH)
     
     def deactivate(self):
         self.pack_forget()
@@ -70,7 +71,7 @@ class Starter(Page):
     def __init__(self, master, slides, atlases):
 
         super().__init__(master, slides, atlases)
-        self.header='Select atlas and target image'
+        self.header = 'Select samples and atlas'
         self.create_widgets()
         self.show_widgets()
     
@@ -79,7 +80,7 @@ class Starter(Page):
         self.atlas_name = tk.StringVar(master=self, value="Choose Atlas")
         atlases = os.listdir(r'atlases')
         self.atlas_picker_label = ttk.Label(self, text="Atlas:")
-        self.atlas_picker_combobox = ttk.Combobx(
+        self.atlas_picker_combobox = ttk.Combobox(
             master=self, 
             values=atlases,
             state='readonly',
@@ -87,31 +88,46 @@ class Starter(Page):
         )
 
         # Slides Picker
-        self.slide_picker_label = ttk.Label(self, text="Samples:")
+        self.slides_folder_name = tk.StringVar(master=self)
+        self.slides_picker_label = ttk.Label(self, text="Samples:")
+        self.slides_picker_entry = ttk.Entry(
+            master=self,
+            textvariable=self.slides_folder_name
+        )
+        self.browse_button = ttk.Button(
+            master=self,
+            text="Browse",
+            command=self.select_slides
+        )
 
     def show_widgets(self):
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=2)
-        self.grid_columnconfigure(2, weight=1)
 
-    def ignore(self):
+        # configure columns
+        self.grid_columnconfigure(0)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2)
 
-        self.target_file_name = tk.StringVar()
-        target_picker_label = ttk.Label(self.frame,text="Target:")
-        target_picker_entry = ttk.Label(self.frame,textvariable=self.target_file_name)
-        target_picker_btn = ttk.Button(self.frame,text="Browse",command=self.select_target)
-
-        atlas_picker_label.grid(row=0,column=0)
-        atlas_picker_combo.grid(row=0,column=1,)
-        target_picker_label.grid(row=1,column=0)
-        target_picker_entry.grid(row=1,column=1)
-        target_picker_btn.grid(row=1,column=2)
+        # show widgets using grid()
+        self.atlas_picker_label.grid(row=0, column=0)
+        self.atlas_picker_combobox.grid(row=0, column=1, sticky='ew')
+        self.slides_picker_label.grid(row=1, column=0)
+        self.slides_picker_entry.grid(row=1, column=1, sticky='ew')
+        self.browse_button.grid(row=1, column=2)
     
-    def select_target(self):
-        file = tk.filedialog.askopenfile(initialdir=os.curdir)
-        if file is None: return False # no file selected
-        self.target_file_name.set(file.name)
+    def select_slides(self):
+        folder_name = tk.filedialog.askdirectory(
+            parent=self, 
+            initialdir=os.curdir,
+            mustexist=True
+        )
+        self.slides_folder_name.set(folder_name)
     
+    def cancel(self):
+        super().cancel()
+
+    def done(self):
+        pass
+
     def next(self):
 
         chosen_atlas = self.atlas_name.get()

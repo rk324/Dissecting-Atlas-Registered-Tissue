@@ -46,20 +46,18 @@ class App(tk.Tk):
         self.next_btn.pack(side=tk.RIGHT)
     
     def next_page(self):
+        self.pages[self.page_index].done()
         if self.page_index == len(self.pages)-1:
             self.destroy()
             return
-
-        self.pages[self.page_index].done()
         self.page_index += 1
         self.update()
 
     def prev_page(self):
+        self.pages[self.page_index].cancel()
         if self.page_index == 0: 
             self.destroy()
             return
-        
-        self.pages[self.page_index].cancel()
         self.page_index -= 1
         self.update()
     

@@ -66,7 +66,7 @@ class Atlas(Image):
         """
         if path.endswith('.nrrd'): 
             self.img, self.pix_dim = Atlas.load_nrrd(path)
-        elif path.endswith(['.nii','.nii.gz']):
+        elif path.endswith(('.nii','.nii.gz')):
             self.img, self.pix_dim = Atlas.load_nii(path)
         else:
             raise Exception(f'File type of {path} not supported.')

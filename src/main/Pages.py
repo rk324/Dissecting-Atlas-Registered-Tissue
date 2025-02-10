@@ -20,7 +20,6 @@ class Page(tk.Frame, ABC):
 
     def __init__(self, master, slides, atlases):
         super().__init__(master)
-
         self.slides = slides
         self.atlases = atlases
         self.header = ""
@@ -122,11 +121,28 @@ class Starter(Page):
         )
         self.slides_folder_name.set(folder_name)
     
+    def done(self):
+        # load atlases
+        atlas_folder_name = os.path.join('atlases', self.atlas_name.get())
+        for filename in os.listdir(atlas_folder_name):
+                path = os.path.join(atlas_folder_name, filename)
+                if 'reference' in filename: 
+                    ref_atlas_filename = path
+                elif 'label' in filename:
+                    lab_atlas_filename = path
+                elif 'names_dict' in filename:
+                    names_dict_filename = path
+
+        self.atlases[FSR].load_img(ref_atlas_filename)
+        self.atlases[FSL].load_img(lab_atlas_filename)
+        # load images for downscaled versiosn
+
+        self.atlases['names'] = pd.read_csv(names_dict_filename)
+        
+        pass
+
     def cancel(self):
         super().cancel()
-
-    def done(self):
-        pass
 
     def next(self):
 

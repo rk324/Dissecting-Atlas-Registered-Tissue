@@ -56,21 +56,29 @@ class Atlas(Image):
     def __init__(self):
         super().__init__()
 
-    def load_img(self, path: str):
+    def load_img(self, path: str=None, img=None, pix_dim=None, ds_factor=1):
         """
         Atlas implementation of load_img() reads in image data and pixel 
-        dimension from provided filename. Sets **img** and **pix_dim** 
-        properties, and clips and normalizes image data.
+        dimension from provided filename or as parameters. Sets **img**, 
+        **pix_dim**, and **shape** properties, and clips and normalizes 
+        image data. Can optionally downscale the image using ds_factor
 
         Currently compatible with nrrd and nifti file types
         """
-        if path.endswith('.nrrd'): 
+        if path is None:
+            if img is not None and pix_dim is not None:
+                self.img = img
+                self.pix_dim = pix_dim
+            else: raise Exception(f'Invalid parameters provided. Either provide path or provide both img and pix_dim')
+        elif path.endswith('.nrrd'): 
             self.img, self.pix_dim = Atlas.load_nrrd(path)
         elif path.endswith(('.nii','.nii.gz')):
             self.img, self.pix_dim = Atlas.load_nii(path)
         else:
             raise Exception(f'File type of {path} not supported.')
         
+        self.img =ski.transform.downscale_local_mean(self.img, ds_factor)
+        self.pix_dim = ds_factor*self.pix_dim
         self.shape = self.img.shape
         self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
         self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img)) # normalize
@@ -297,7 +305,7 @@ class Target(Image):
 class Slide(Image):
 
     def __init__(self, filename):
-        super().init()
+        super().__init__()
         self.load_img(filename)
         self.targets: list[Target] = []
         self.num_targets = 0

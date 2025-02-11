@@ -122,24 +122,50 @@ class Starter(Page):
         self.slides_folder_name.set(folder_name)
     
     def done(self):
+        # check that atlas picker and slides picker are not blank
+        if (self.atlas_name.get() == 'Choose Atlas' or 
+            self.slides_folder_name.get() == ''):
+                raise Exception('Must select an atlas and samples')
+
         # load atlases
         atlas_folder_name = os.path.join('atlases', self.atlas_name.get())
-        for filename in os.listdir(atlas_folder_name):
-                path = os.path.join(atlas_folder_name, filename)
+        self.load_atlas_info(atlas_folder_name)
+
+        # load slides
+        self.load_slides(self.slides_folder_name.get())
+
+    def load_atlas_info(self, path):
+        for filename in os.listdir(path):
+                curr_path = os.path.join(path, filename)
                 if 'reference' in filename: 
-                    ref_atlas_filename = path
+                    ref_atlas_filename = curr_path
                 elif 'label' in filename:
-                    lab_atlas_filename = path
+                    lab_atlas_filename = curr_path
                 elif 'names_dict' in filename:
-                    names_dict_filename = path
+                    names_dict_filename = curr_path
 
-        self.atlases[FSR].load_img(ref_atlas_filename)
-        self.atlases[FSL].load_img(lab_atlas_filename)
+        self.atlases[FSR].load_img(path=ref_atlas_filename)
+        self.atlases[FSL].load_img(path=lab_atlas_filename)
         # load images for downscaled versiosn
-
+        downscale_factor = 4
+        self.atlases[DSR].load_img(
+            img=self.atlases[FSR].img, 
+            pix_dim=self.atlases[FSR].pix_dim, 
+            ds_factor=downscale_factor
+        )
+        self.atlases[DSL].load_img(
+            img=self.atlases[FSL].img, 
+            pix_dim=self.atlases[FSL].pix_dim, 
+            ds_factor=downscale_factor
+        )
         self.atlases['names'] = pd.read_csv(names_dict_filename)
-        
-        pass
+
+    def load_slides(self, path):
+        for f in os.listdir(path):
+            curr_path = os.path.join(path, f)
+            if os.path.isfile(curr_path):
+                new_slide = Slide(curr_path)
+                self.slides.append(new_slide)
 
     def cancel(self):
         super().cancel()

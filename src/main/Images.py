@@ -208,7 +208,7 @@ class Target(Image):
         self.seg_stalign = None
         self.seg_visualign = None
 
-    def load_img(self, raw_img_data, pix_dim, ds_factor):
+    def load_img(self, raw_img_data, pix_dim, ds_factor=1):
         """
         Target implementation of load_img() saves original, downscaled, and 
         preprocess images as **img_original**, **img_donwscaled**, and **img**
@@ -327,8 +327,8 @@ class Slide(Image):
         self.shape = self.img.shape
     
     def estimate_pix_dim(self):
-        target_pix_locs = [t.estimate_pix_dim() for t in self.targets]
-        self.pix_dim = np.average(target_pix_locs,axis=0)
+        target_pix_dims = [t.estimate_pix_dim() for t in self.targets]
+        self.pix_dim = np.average(target_pix_dims, axis=0)
         super().set_pix_loc()
         for t in self.targets:
             t.pix_dim = self.pix_dim

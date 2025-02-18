@@ -21,7 +21,7 @@ class App(tk.Tk):
             'names': None
         }
 
-        page_list: tuple[Page] = tuple([Starter])
+        page_list: tuple[Page] = tuple([Starter, SlideProcessor])
         self.pages: list[Page] = [page(self.main_window, self.slides, self.atlases) for page in page_list] # initalize each page in here with self.main_window as parent
         self.page_index = 0
         self.update()
@@ -39,7 +39,7 @@ class App(tk.Tk):
     def show_widgets(self):
         # show nav_bar and main_window
         self.main_window.pack(expand=True, fill=tk.BOTH)
-        self.page_label.pack(fill=tk.X)
+        self.page_label.pack()
 
         self.nav_bar.pack(side=tk.BOTTOM)
         self.prev_btn.pack(side=tk.LEFT)
@@ -75,7 +75,8 @@ class App(tk.Tk):
         self.next_btn.config(text='Next')
         if self.page_index == 0:
             self.prev_btn.config(text='Exit')
-        elif self.page_index == len(self.pages)-1:
+        
+        if self.page_index == len(self.pages)-1:
             self.next_btn.config(text='Finish')
 
 

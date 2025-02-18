@@ -24,7 +24,6 @@ class Page(tk.Frame, ABC):
         self.atlases = atlases
         self.header = ""
         self.create_widgets()
-        self.show_widgets()
 
     @abstractmethod
     def create_widgets(self): pass
@@ -46,6 +45,7 @@ class Page(tk.Frame, ABC):
 
     def activate(self):
         self.pack(expand=True, fill=tk.BOTH)
+        self.show_widgets()
     
     def deactivate(self):
         self.pack_forget()
@@ -61,18 +61,12 @@ class Page(tk.Frame, ABC):
     def get_header(self):
         return self.header
 
-    # just in case gets called in a child class that doesnt have a definition for it
-    def previous(self): pass
-    def next(self): pass
-
 class Starter(Page):
 
     def __init__(self, master, slides, atlases):
 
         super().__init__(master, slides, atlases)
         self.header = 'Select samples and atlas'
-        self.create_widgets()
-        self.show_widgets()
     
     def create_widgets(self):
         # Atlas Picker
@@ -123,16 +117,21 @@ class Starter(Page):
     
     def done(self):
         # check that atlas picker and slides picker are not blank
-        if (self.atlas_name.get() == 'Choose Atlas' or 
-            self.slides_folder_name.get() == ''):
-                raise Exception('Must select an atlas and samples')
+        if self.atlas_name.get() == 'Choose Atlas': 
+            raise Exception('Must select an atlas.')
+        elif self.slides_folder_name.get() == '':
+            raise Exception('Must select an folder containing sample images.')
 
         # load atlases
         atlas_folder_name = os.path.join('atlases', self.atlas_name.get())
         self.load_atlas_info(atlas_folder_name)
 
         # load slides
+        if not os.path.exists(self.slides_folder_name.get()): 
+            raise Exception ('Must select a folder containing sample images')
         self.load_slides(self.slides_folder_name.get())
+
+        super().done
 
     def load_atlas_info(self, path):
         for filename in os.listdir(path):
@@ -170,16 +169,48 @@ class Starter(Page):
     def cancel(self):
         super().cancel()
 
-    def next(self):
+class SlideProcessor(Page):
 
-        chosen_atlas = self.atlas_name.get()
-        target_address = self.target_file_name.get()
+    def __init__(self, master, slides, atlases):
+        super().__init__(master, slides, atlases)
+        self.header = "Select slices and calibration points."
 
-        if chosen_atlas == "Choose Atlas": raise Exception("Please choose an atlas")
-        elif target_address == "": raise Exception("Please select a target image file")
+    def create_widgets(self): 
+        pass
+        '''self.menu_frame = tk.Frame(self)
+        self.annotation_mode = tk.StringVar(
+            master=self.menu_frame,
+            value="point"
+        )
+        self.point_radio = ttk.Radiobutton(
+            master=self.menu_frame,
+            command=print("point clicked"),
+            value="point",
+            variable=self.annotation_mode,
+            text='O'
+        )
+        self.rectangle_radio = ttk.Radiobutton(
+            master=self.menu_frame,
+            command=print("rect clicked"),
+            value="rect",
+            variable=self.annotation_mode,
+            text="[]"
+        )'''
 
-        self.deactivate()
-        return STalign_Prep(self)
+
+    def show_widgets(self):
+        pass
+        '''self.menu_frame.pack(expand=True, fill=tk.X)
+        self.point_radio.pack(side=tk.LEFT)
+        self.rectangle_radio(side=tk.RIGHT)'''
+
+    def done(self):
+        super().done()
+
+    def cancel(self):
+        super().cancel()
+
+
 
 class STalign_Prep(Page):
     

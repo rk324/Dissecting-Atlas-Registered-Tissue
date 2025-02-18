@@ -323,7 +323,7 @@ class Slide(Image):
         }
 
     def load_img(self, filename):
-        self.img = PIL.Image.open(filename)
+        self.img = ski.io.imread(filename)
         self.shape = self.img.shape
     
     def estimate_pix_dim(self):

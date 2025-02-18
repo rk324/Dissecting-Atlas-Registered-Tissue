@@ -2,9 +2,12 @@ import tkinter as tk
 from tkinter import ttk
 import sys
 import os
-sys.path.append('src')
-sys.path.append(os.path.join('src', 'main'))
+sys.path.append(os.path.join('src','main'))
 
+from images import Slide, Atlas
+from constants import *
+from pages import Starter
+print('hello')
 
 root = tk.Tk()
 slides: list[Slide] = []
@@ -17,6 +20,6 @@ atlases = {
 }
 
 
-demo = Starter()
+demo = Starter(root, slides, atlases)
 demo.activate()
 root.mainloop()

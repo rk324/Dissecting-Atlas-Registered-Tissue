@@ -131,7 +131,7 @@ class Starter(Page):
             raise Exception ('Must select a folder containing sample images')
         self.load_slides(self.slides_folder_name.get())
 
-        super().done
+        super().done()
 
     def load_atlas_info(self, path):
         for filename in os.listdir(path):
@@ -176,8 +176,7 @@ class SlideProcessor(Page):
         self.header = "Select slices and calibration points."
 
     def create_widgets(self): 
-        pass
-        '''self.menu_frame = tk.Frame(self)
+        self.menu_frame = tk.Frame(self)
         self.annotation_mode = tk.StringVar(
             master=self.menu_frame,
             value="point"
@@ -187,22 +186,29 @@ class SlideProcessor(Page):
             command=print("point clicked"),
             value="point",
             variable=self.annotation_mode,
-            text='O'
+            text='Add Calibration Points',
+            style='Toolbutton'
         )
         self.rectangle_radio = ttk.Radiobutton(
             master=self.menu_frame,
             command=print("rect clicked"),
             value="rect",
             variable=self.annotation_mode,
-            text="[]"
-        )'''
+            text="Select Slices",
+            style='Toolbutton'
+        )
+        self.slide_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[i+1 for i in range(len(self.slides))],
+            state='readonly'
+        )
 
 
     def show_widgets(self):
-        pass
-        '''self.menu_frame.pack(expand=True, fill=tk.X)
+        self.menu_frame.pack(expand=True, fill=tk.X)
         self.point_radio.pack(side=tk.LEFT)
-        self.rectangle_radio(side=tk.RIGHT)'''
+        self.rectangle_radio.pack(side=tk.LEFT)
+        self.slide_nav_combo.pack(side=tk.LEFT)
 
     def done(self):
         super().done()

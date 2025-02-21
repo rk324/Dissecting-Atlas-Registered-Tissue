@@ -8,13 +8,7 @@ import skimage as ski
 import PIL
 import shapely
 import os
-from scipy.ndimage import rotate
 import STalign
-
-from matplotlib.figure import Figure
-from matplotlib.animation import FuncAnimation
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
-NavigationToolbar2Tk)
 
 class Image():
 

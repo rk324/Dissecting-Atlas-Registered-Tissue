@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.join('src','main'))
 
 from images import Slide, Atlas
-from constants import *
+from constants import FSR, DSR, FSL, DSL
 from pages import Starter, SlideProcessor
 print('hello')
 

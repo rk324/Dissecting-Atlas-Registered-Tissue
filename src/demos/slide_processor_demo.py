@@ -6,7 +6,8 @@ sys.path.append(os.path.join('src','main'))
 
 from images import Slide, Atlas
 from constants import *
-from pages import Starter
+from pages import Starter, SlideProcessor
+print('hello')
 
 root = tk.Tk()
 slides: list[Slide] = []
@@ -18,7 +19,9 @@ atlases = {
     'names': None
 }
 
-
-demo = Starter(root, slides, atlases)
+starter = Starter(root, slides, atlases)
+starter.load_atlas_info(os.path.join('atlases','allen_nissl_100um'))
+starter.load_slides('demo_images')
+demo = SlideProcessor(root, slides, atlases)
 demo.activate()
 root.mainloop()

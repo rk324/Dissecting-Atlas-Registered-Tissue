@@ -10,6 +10,8 @@ import shapely
 import os
 import STalign
 
+from constants import DEFAULT_STALIGN_PARAMS
+
 class Image():
 
     def __init__(self):
@@ -210,8 +212,8 @@ class Target(Image):
         """
         self.img_original = raw_img_data.copy()
         original_shape = self.img_original.shape
-        ds_tuple = (ds_factor if i<2 else 1 
-                    for i in range(len(original_shape)))
+        ds_tuple = tuple([ds_factor if i<2 else 1 
+                    for i in range(len(original_shape))])
 
         self.img_downscaled = ski.transform.downscale_local_mean(
             self.img_original,
@@ -232,7 +234,8 @@ class Target(Image):
 
         self.pix_dim = pix_dim
         self.shape = self.img.shape
-        self.set_pix_loc()
+        if self.pix_dim is not None:
+            self.set_pix_loc()
 
     def estimate_pix_dim(self, threshold):
         """
@@ -302,7 +305,7 @@ class Slide(Image):
         super().__init__()
         self.load_img(filename)
         self.targets: list[Target] = []
-        self.num_targets = 0
+        self.numTargets = 0
 
         self.calibration_points = []
         self.num_calibration_points = 0
@@ -320,6 +323,14 @@ class Slide(Image):
         self.img = ski.io.imread(filename)
         self.shape = self.img.shape
     
+    # resets params if no params passed,
+    # if key and val provided, sets given param to given value
+    def set_param(self, key=None, val: float =None):    
+        if key is None and val is None:
+            self.stalign_params = DEFAULT_STALIGN_PARAMS.copy()
+        elif key in self.stalign_params:
+            self.stalign_params[key] = val
+        
     def estimate_pix_dim(self):
         target_pix_dims = [t.estimate_pix_dim() for t in self.targets]
         self.pix_dim = np.average(target_pix_dims, axis=0)
@@ -328,17 +339,13 @@ class Slide(Image):
             t.pix_dim = self.pix_dim
             t.set_pix_loc()
 
-    def add_target(self, x, y, height, width, ds_factor=1):
+    def add_target(self, x, y, data, ds_factor=1):
         '''
-        Creates Target and adds to **targets** by cropping image 
-        data with top-left corner coordinates specified by **x** 
-        and **y** and with dimensions specified by **height** and 
-        **width**
+        Creates Target using x,y, and data
         '''
-        img_data = self.img[y : y+height, x : x+width]
-        new_target = Target(img_data, self.pix_dim, x, y, ds_factor)
+        new_target = Target(data, self.pix_dim, x, y, ds_factor)
         self.targets.append(new_target)
-        self.num_targets += 1
+        self.numTargets += 1
 
     def add_calibration_point(self, point):
         if self.num_calibration_points < 3:

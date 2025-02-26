@@ -8,6 +8,7 @@ import shapely
 import pandas as pd
 from sklearn.cluster import dbscan
 
+import matplotlib as mpl
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
 NavigationToolbar2Tk)
@@ -31,17 +32,24 @@ class Page(tk.Frame, ABC):
     @abstractmethod
     def show_widgets(self): pass
 
-    def create_figure(self, num_rows, num_cols):
-        
-        # create plots with specified dimensions
-        self.fig = Figure()
-        self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
-        self.fig.subplots(num_rows, num_cols)
+    # nested class for matplotlib figures in tkinter gui
+    class TkFigure(Figure):
 
-        # add mpl toolbar to allow zoom, translation
-        self.toolbar_frame = ttk.Frame(self.frame)
-        toolbar = NavigationToolbar2Tk(self.canvas, self.toolbar_frame) 
-        toolbar.update()
+        def __init__(self, master, num_rows=1, num_cols=1, toolbar=False):
+            super().__init__()
+            self.canvas = FigureCanvasTkAgg(self, master)
+            self.subplots(num_rows, num_cols)
+        
+            if toolbar:
+                self.toolbar = NavigationToolbar2Tk(self.canvas, master)
+                self.toolbar.update()
+            
+        def get_widget(self):
+            return self.canvas.get_tk_widget()
+
+        def update(self):
+            self.canvas.draw()
+            self.canvas.flush_events()
 
     def activate(self):
         self.pack(expand=True, fill=tk.BOTH)
@@ -174,8 +182,48 @@ class SlideProcessor(Page):
     def __init__(self, master, slides, atlases):
         super().__init__(master, slides, atlases)
         self.header = "Select slices and calibration points."
+        self.currSlide = self.slides[self.get_index()]
+
+        self.newPointX = self.newPointY = -1
+        self.newTargetX = self.newTargetY = -1
+        self.newTargetData = None
+
+        self.slice_selector = mpl.widgets.RectangleSelector(
+            self.slide_viewer.axes[0], 
+            self.on_select,
+            button=1,
+            useblit=True,
+            interactive=True
+        )
+
+        self.activate_point_mode() # start on point mode
+
+    def on_select(self, click, release):
+        startX, startY = int(click.xdata), int(click.ydata)
+        endX, endY = int(release.xdata), int(release.ydata)
+        if startX==endX and startY==endY:
+            self.newTargetX = -1
+            self.newTargetY = -1
+            self.newTargetData = None
+        else:
+            self.newTargetX = startX
+            self.newTargetY = startY
+            self.newTargetData = self.currSlide.get_img()[startY:endY, startX:endX]
+        
+        self.update_buttons()
+
+    def on_click(self, event):
+        if event.inaxes is None: return
+        x,y = int(event.xdata), int(event.ydata)
+        if event.button == 1:
+            self.newPointX = x
+            self.newPointY = y
+
+        self.update_buttons()
+        self.show_slide()
 
     def create_widgets(self): 
+        # menu
         self.menu_frame = tk.Frame(self)
         self.annotation_mode = tk.StringVar(
             master=self.menu_frame,
@@ -183,7 +231,7 @@ class SlideProcessor(Page):
         )
         self.point_radio = ttk.Radiobutton(
             master=self.menu_frame,
-            command=print("point clicked"),
+            command=self.activate_point_mode,
             value="point",
             variable=self.annotation_mode,
             text='Add Calibration Points',
@@ -191,30 +239,359 @@ class SlideProcessor(Page):
         )
         self.rectangle_radio = ttk.Radiobutton(
             master=self.menu_frame,
-            command=print("rect clicked"),
+            command=self.activate_rect_mode,
             value="rect",
             variable=self.annotation_mode,
             text="Select Slices",
             style='Toolbutton'
         )
+        self.remove_btn = ttk.Button(
+            master=self.menu_frame,
+            text='',
+            command = self.remove,
+            state='disabled'
+        )
+        self.commit_btn = ttk.Button(
+            master=self.menu_frame,
+            text='',
+            command=self.commit,
+            state='disabled'
+        )
+        self.clear_btn = ttk.Button(
+            master=self.menu_frame,
+            text='Clear uncommitted',
+            command=self.clear,
+            state='disabled'
+        )
+
+        self.slide_nav_label = ttk.Label(self.menu_frame, text="Slide: ")
+        self.curr_slide_var = tk.IntVar(master=self.menu_frame, value='1')
         self.slide_nav_combo = ttk.Combobox(
             master=self.menu_frame,
             values=[i+1 for i in range(len(self.slides))],
+            state='readonly',
+            textvariable=self.curr_slide_var,
+        )
+        self.slide_nav_combo.bind('<<ComboboxSelected>>', self.update)
+
+        # slide viewer
+        self.slides_frame = tk.Frame(self)
+        self.slide_viewer = self.TkFigure(self.slides_frame, toolbar=True)
+        self.slide_viewer.update()
+
+        # paramater settings
+        self.params_frame = tk.Frame(self)
+        self.params_label = ttk.Label(
+            self.params_frame,
+            text="Adjust parameters for automatic alignment"
+        )
+        self.params_save_btn = ttk.Button(
+            master=self.params_frame,
+            text='Save parameters for slide',
+            command=self.save_params
+        )
+        
+        # basic parameter settings
+        self.basic_frame = tk.Frame(self.params_frame, pady=10)
+        self.basic_label = ttk.Label(
+            master=self.basic_frame,
+            text="Basic"
+        )
+        self.basic_param_label = ttk.Label(
+            self.basic_frame, 
+            text="Speed: "
+        )
+        self.basic_options = [
+            'very slow 1-2 hrs/sample',
+            'slow 15-30 min/sample', 
+            'medium 3-5 min/sample', 
+            'fast 20-30 sec/sample', 
+            'skip automatic alignment' 
+        ]
+        self.basic_combo = ttk.Combobox(
+            master=self.basic_frame,
+            values = self.basic_options,
             state='readonly'
         )
-
+        self.basic_combo.bind('<<ComboboxSelected>>', self.basic_to_advanced)
+        self.basic_combo.set(self.basic_options[2])
+        
+        # advanced parameter settings
+        self.advanced_frame = tk.Frame(self.params_frame)
+        self.advanced_label = ttk.Label(
+            master=self.advanced_frame,
+            text="Advanced"
+        )
+        self.advanced_params_frame = tk.Frame(self.advanced_frame)
+        self.param_vars, self.advanced_entries, self.advanced_param_labels = {}, {}, {}
+        val_cmd = self.register(self.isFloat)
+        for key, value in DEFAULT_STALIGN_PARAMS.items():
+            self.param_vars[key] = tk.StringVar(master=self.advanced_params_frame, value=value)
+            self.advanced_param_labels[key] = ttk.Label(master=self.advanced_params_frame, text=f'{key}:')
+            self.advanced_entries[key] = ttk.Entry(
+                master=self.advanced_params_frame, 
+                textvariable=self.param_vars[key],
+                validate='key',
+                validatecommand=(val_cmd,'%P')
+            )
 
     def show_widgets(self):
-        self.menu_frame.pack(expand=True, fill=tk.X)
+
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        # show menu
+        self.menu_frame.grid(row=0, column=0, columnspan=2, sticky='nsew')
         self.point_radio.pack(side=tk.LEFT)
         self.rectangle_radio.pack(side=tk.LEFT)
-        self.slide_nav_combo.pack(side=tk.LEFT)
+        self.slide_nav_combo.pack(side=tk.RIGHT)
+        self.slide_nav_label.pack(side=tk.RIGHT)
+
+        self.remove_btn.pack(side=tk.LEFT)
+        self.commit_btn.pack(side=tk.LEFT)
+        self.clear_btn.pack()
+
+        # show slide viewer
+        self.slides_frame.grid(row=1, column=0, sticky='nsew')
+        self.slide_viewer.get_widget().pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+        self.show_slide()
+
+        # show prameter settings
+        self.params_frame.grid(row=1, column=1, sticky='nsew')
+        self.params_label.pack()
+        self.params_save_btn.pack(side=tk.BOTTOM, anchor='se')
+
+        self.basic_frame.pack(fill=tk.X)
+        self.basic_label.pack()
+        self.basic_param_label.pack(side=tk.LEFT, anchor='nw')
+        self.basic_combo.pack(side=tk.RIGHT, anchor='ne', expand=True, fill=tk.X)
+
+        self.advanced_frame.pack(fill=tk.X)
+        self.advanced_label.pack()
+        self.advanced_params_frame.pack()
+        self.advanced_params_frame.columnconfigure(1, weight=1)
+        for i,key in enumerate(self.advanced_entries):
+            label = self.advanced_param_labels[key]
+            entry = self.advanced_entries[key]
+            label.grid(row=i, column=0)
+            entry.grid(row=i, column=1, sticky='ew')
+
+    def show_slide(self, event=None):
+        self.slide_viewer.axes[0].cla()
+        self.slide_viewer.axes[0].imshow(self.currSlide.get_img())
+        
+        for i,target in enumerate(self.currSlide.targets):
+            edgecolor = 'lime'
+            if i == self.currSlide.numTargets-1: edgecolor = 'orange'
+            self.slide_viewer.axes[0].add_patch(
+                mpl.patches.Rectangle(
+                    (target.x_offset, target.y_offset),
+                    target.img_original.shape[1], 
+                    target.img_original.shape[0],
+                    edgecolor=edgecolor,
+                    facecolor='none', 
+                    lw=3
+                )
+            )
+        
+        point_size = 10
+        if self.currSlide.numCalibrationPoints > 0:
+            points = np.array(self.currSlide.calibration_points)
+            self.slide_viewer.axes[0].scatter(
+                points[:-1,0], 
+                points[:-1,1], 
+                color='lime', 
+                s=point_size
+            )
+            self.slide_viewer.axes[0].scatter(
+                points[-1,0], 
+                points[-1,1], 
+                color='orange', 
+                s=point_size
+            )
+        if not (self.newPointX == -1 and self.newPointY == -1):
+            self.slide_viewer.axes[0].scatter(self.newPointX, self.newPointY, color='red', s=point_size)
+
+        self.slide_viewer.update()
+
+    def update_buttons(self):
+        mode = self.annotation_mode.get()
+        if mode == 'rect':
+            self.remove_btn.config(text="Remove Section")
+            self.commit_btn.config(text="Add Section")
+            canRemove = self.currSlide.numTargets > 0
+            canAdd = self.newTargetData is not None
+        elif mode == 'point':
+            self.remove_btn.config(text="Remove Point")
+            self.commit_btn.config(text="Add Point")
+            canRemove = self.currSlide.numCalibrationPoints > 0
+            canAdd = not self.newPointX==self.newPointY==-1
+        else: return
+
+        if canRemove:
+            self.remove_btn.config(state='active')
+        else:
+            self.remove_btn.config(state='disabled')
+        
+        if canAdd:
+            self.commit_btn.config(state='active')
+        else:
+            self.commit_btn.config(state='disabled')
+
+    def update(self, event=None):
+        self.currSlide = self.slides[self.get_index()]
+        self.clear()
+        self.show_slide() # update the slide image
+        self.update_buttons() # update buttons
+
+        curr_params = self.currSlide.stalign_params
+        for key,var in self.param_vars.items():
+            var.set(curr_params[key])
+        
+        self.set_basic()
+
+    def save_params(self):
+        curr_slide = self.currSlide
+        for key, value in self.param_vars.items():
+            curr_slide.set_param(key, float(value.get()))
+        self.set_basic()
+        # confirm
+        print("parameters saved!")
+
+    '''
+    Set advanced settings based on basic settings
+    '''
+    def basic_to_advanced(self, event=None):
+        # reset params to defaults
+        for key, var in self.param_vars.items():
+            var.set(DEFAULT_STALIGN_PARAMS[key])
+        
+        # set iterations based on speed setting
+        speed = self.basic_combo.get()
+        if "very slow" in speed:
+            self.param_vars['iterations'].set('2000')
+        elif "slow" in speed:
+            self.param_vars['iterations'].set('500')
+        elif "medium" in speed:
+            self.param_vars['iterations'].set('100')
+        elif "fast" in speed:
+            self.param_vars['iterations'].set('10')
+        else:
+            self.param_vars['iterations'].set('0') #TODO: ensure STalign doesn't explod when given 0 iterations
+
+    '''
+    Set basic settings based on current slide's params
+    '''
+    def set_basic(self):
+        num_iterations = float(self.param_vars['iterations'].get())
+        
+        for key, var in self.param_vars.items():
+            if key == 'iterations': continue
+            if float(var.get()) != DEFAULT_STALIGN_PARAMS[key]:
+                self.basic_combo.set(f"Advanced settings estimated {1/24*num_iterations}")
+                return
+        
+        if num_iterations == 2000: self.basic_combo.set(self.basic_options[0])
+        elif num_iterations == 500: self.basic_combo.set(self.basic_options[1])
+        elif num_iterations == 100: self.basic_combo.set(self.basic_options[2])
+        elif num_iterations == 10: self.basic_combo.set(self.basic_options[3])
+        elif num_iterations == 0: self.basic_combo.set(self.basic_options[4])
+        else:
+            self.basic_combo.set(f"Advanced settings estimated {2.5*num_iterations}") 
+
+    def activate_point_mode(self):
+        self.clear()
+        self.slice_selector.set_active(False)
+        self.click_event = self.slide_viewer.canvas.mpl_connect('button_press_event', self.on_click)
+        self.update_buttons()
+
+    def activate_rect_mode(self):
+        self.clear()
+        self.slice_selector.set_active(True)
+        self.slide_viewer.canvas.mpl_disconnect(self.click_event)
+        self.update_buttons()
+
+    def remove(self):
+        mode = self.annotation_mode.get()
+        if mode == 'rect':
+            self.remove_target()
+        elif mode == 'point':
+            self.remove_point()
+        else: return
+
+        self.show_slide()
+        self.update_buttons
+
+    def remove_target(self):
+        self.currSlide.remove_target()
+
+    def remove_point(self):
+        self.currSlide.remove_calibration_point()
+
+    def commit(self):
+        mode = self.annotation_mode.get()
+        if mode == 'rect':
+            self.commit_target()
+        elif mode == 'point':
+            self.commit_point()
+        else: return
+        
+        self.show_slide()
+        self.update_buttons()
+
+    def commit_target(self):
+        if self.newTargetData is None: return
+        self.currSlide.add_target(
+            self.newTargetX, 
+            self.newTargetY,
+            self.newTargetData 
+        )
+        self.newTargetData = None
+        self.newTargetX = self.newTargetY = -1
+        self.slice_selector.clear()
+
+    def commit_point(self):
+        self.currSlide.add_calibration_point(
+            [self.newPointX,self.newPointY]
+        )
+        self.newPointX = self.newPointY = -1
+
+    def clear(self):
+        self.newTargetX = self.newTargetY = -1
+        self.newPointX = self.newPointY = -1
+        self.newTargetData = None
+        self.slice_selector.clear()
+        self.show_slide()
+
+    def isFloat(self, str):
+        try:
+            float(str)
+            return True
+        except ValueError:
+            return False
+
+    def get_index(self):
+        return self.curr_slide_var.get()-1
 
     def done(self):
+        # TODO: make the widget reposition to first slide w error and prompt user about error
+        for i,slide in enumerate(self.slides):
+            if slide.numTargets < 1: 
+                raise Exception(f"No targets selected for slide #{i}")
+            if slide.numCalibrationPoints != 3:
+                raise Exception(f"You must select exactly three calibration points for each slide")
         super().done()
 
+
     def cancel(self):
+        for slide in self.slides:
+            slide.set_param() # reset params
+            for i in range(slide.numCalibrationPoints):
+                slide.remove_calibration_point() # remove calibration points
+            for i in range(slide.numTargets):
+                slide.remove_target() # remove targets
         super().cancel()
+
 
 
 

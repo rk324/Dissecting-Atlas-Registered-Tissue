@@ -357,8 +357,8 @@ class Slide(Image):
             self.numCalibrationPoints += 1
         else: raise Exception("Cannot have more than 3 Calibration points")
 
-    def remove_calibration_point(self, point):
+    def remove_calibration_point(self, index=-1):
         if self.numCalibrationPoints > 0:
-            self.calibration_points.pop(-1)
+            self.calibration_points.pop(index)
             self.numCalibrationPoints -= 1
         else: raise Exception("No Calibration Points to remove")

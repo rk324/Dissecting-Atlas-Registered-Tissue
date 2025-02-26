@@ -182,7 +182,7 @@ class SlideProcessor(Page):
     def __init__(self, master, slides, atlases):
         super().__init__(master, slides, atlases)
         self.header = "Select slices and calibration points."
-        self.currSlide = self.slides[self.get_index()]
+        self.currSlide = None
 
         self.newPointX = self.newPointY = -1
         self.newTargetX = self.newTargetY = -1
@@ -196,7 +196,12 @@ class SlideProcessor(Page):
             interactive=True
         )
 
-        self.activate_point_mode() # start on point mode
+    def activate(self):
+        super().activate()
+        if self.annotation_mode.get() == 'point':
+            self.activate_point_mode()
+        elif self.annotation_mode.get() == 'rect':
+            self.activate_rect_mode()
 
     def on_select(self, click, release):
         startX, startY = int(click.xdata), int(click.ydata)
@@ -245,20 +250,22 @@ class SlideProcessor(Page):
             text="Select Slices",
             style='Toolbutton'
         )
+        
+        self.menu_buttons_frame = tk.Frame(self.menu_frame)
         self.remove_btn = ttk.Button(
-            master=self.menu_frame,
+            master=self.menu_buttons_frame,
             text='',
             command = self.remove,
             state='disabled'
         )
         self.commit_btn = ttk.Button(
-            master=self.menu_frame,
+            master=self.menu_buttons_frame,
             text='',
             command=self.commit,
             state='disabled'
         )
         self.clear_btn = ttk.Button(
-            master=self.menu_frame,
+            master=self.menu_buttons_frame,
             text='Clear uncommitted',
             command=self.clear,
             state='disabled'
@@ -268,7 +275,7 @@ class SlideProcessor(Page):
         self.curr_slide_var = tk.IntVar(master=self.menu_frame, value='1')
         self.slide_nav_combo = ttk.Combobox(
             master=self.menu_frame,
-            values=[i+1 for i in range(len(self.slides))],
+            values=[],
             state='readonly',
             textvariable=self.curr_slide_var,
         )
@@ -344,17 +351,20 @@ class SlideProcessor(Page):
         self.menu_frame.grid(row=0, column=0, columnspan=2, sticky='nsew')
         self.point_radio.pack(side=tk.LEFT)
         self.rectangle_radio.pack(side=tk.LEFT)
+        self.slide_nav_combo.config(
+            values=[i+1 for i in range(len(self.slides))]
+        )
         self.slide_nav_combo.pack(side=tk.RIGHT)
         self.slide_nav_label.pack(side=tk.RIGHT)
 
+        self.menu_buttons_frame.pack()
         self.remove_btn.pack(side=tk.LEFT)
         self.commit_btn.pack(side=tk.LEFT)
-        self.clear_btn.pack()
+        self.clear_btn.pack(side=tk.LEFT)
 
         # show slide viewer
         self.slides_frame.grid(row=1, column=0, sticky='nsew')
         self.slide_viewer.get_widget().pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-        self.show_slide()
 
         # show prameter settings
         self.params_frame.grid(row=1, column=1, sticky='nsew')
@@ -376,7 +386,10 @@ class SlideProcessor(Page):
             label.grid(row=i, column=0)
             entry.grid(row=i, column=1, sticky='ew')
 
+        self.update() # update buttons, slideviewer, stalign params
+
     def show_slide(self, event=None):
+        self.currSlide = self.slides[self.get_index()]
         self.slide_viewer.axes[0].cla()
         self.slide_viewer.axes[0].imshow(self.currSlide.get_img())
         
@@ -435,13 +448,14 @@ class SlideProcessor(Page):
         
         if canAdd:
             self.commit_btn.config(state='active')
+            self.clear_btn.config(state='active')
         else:
             self.commit_btn.config(state='disabled')
+            self.clear_btn.config(state='disabled')
 
     def update(self, event=None):
         self.currSlide = self.slides[self.get_index()]
-        self.clear()
-        self.show_slide() # update the slide image
+        self.clear() # clear and show new slide image
         self.update_buttons() # update buttons
 
         curr_params = self.currSlide.stalign_params
@@ -577,11 +591,10 @@ class SlideProcessor(Page):
         # TODO: make the widget reposition to first slide w error and prompt user about error
         for i,slide in enumerate(self.slides):
             if slide.numTargets < 1: 
-                raise Exception(f"No targets selected for slide #{i}")
+                raise Exception(f"No targets selected for slide #{i+1}")
             if slide.numCalibrationPoints != 3:
                 raise Exception(f"You must select exactly three calibration points for each slide")
         super().done()
-
 
     def cancel(self):
         for slide in self.slides:

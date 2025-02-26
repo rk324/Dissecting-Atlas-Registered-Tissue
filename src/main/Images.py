@@ -308,7 +308,7 @@ class Slide(Image):
         self.numTargets = 0
 
         self.calibration_points = []
-        self.num_calibration_points = 0
+        self.numCalibrationPoints = 0
         
         self.stalign_params = {
             'timesteps': 12,
@@ -347,14 +347,18 @@ class Slide(Image):
         self.targets.append(new_target)
         self.numTargets += 1
 
+    def remove_target(self, index=-1):
+        self.targets.pop(index)
+        self.numTargets -= 1
+
     def add_calibration_point(self, point):
-        if self.num_calibration_points < 3:
+        if self.numCalibrationPoints < 3:
             self.calibration_points.append(point)
-            self.num_calibration_points += 1
+            self.numCalibrationPoints += 1
         else: raise Exception("Cannot have more than 3 Calibration points")
 
     def remove_calibration_point(self, point):
-        if self.num_calibration_points > 0:
+        if self.numCalibrationPoints > 0:
             self.calibration_points.pop(-1)
-            self.num_calibration_points -= 1
+            self.numCalibrationPoints -= 1
         else: raise Exception("No Calibration Points to remove")

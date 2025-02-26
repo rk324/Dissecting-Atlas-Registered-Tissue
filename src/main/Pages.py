@@ -605,9 +605,6 @@ class SlideProcessor(Page):
                 slide.remove_target() # remove targets
         super().cancel()
 
-
-
-
 class STalign_Prep(Page):
     
     def __init__(self, prev):

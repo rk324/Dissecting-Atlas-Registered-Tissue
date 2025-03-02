@@ -23,6 +23,7 @@ starter = Starter(root, slides, atlases)
 starter.load_atlas_info(os.path.join('atlases','allen_nissl_100um'))
 starter.load_slides('demo_images')
 slide_processor = SlideProcessor(root, slides, atlases)
+# TODO: add targets and mark dummy calibration points
 
 demo = TargetProcessor(root, slides, atlases)
 demo.activate()

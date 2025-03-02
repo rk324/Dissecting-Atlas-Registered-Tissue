@@ -605,6 +605,19 @@ class SlideProcessor(Page):
                 slide.remove_target() # remove targets
         super().cancel()
 
+class TargetProccessor(Page):
+
+    def __init__(self, master, slides, atlases):
+        super().__init__(master, slides, atlases)
+        self.header = "Select landmark points and adjust affine."
+        self.currSlide = None
+
+    def create_widgets(self):
+        pass
+
+    def show_widgets(self):
+        pass
+
 class STalign_Prep(Page):
     
     def __init__(self, prev):

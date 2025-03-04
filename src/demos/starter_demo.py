@@ -1,24 +1,14 @@
-import tkinter as tk
-from tkinter import ttk
-import sys
-import os
-sys.path.append(os.path.join('src','main'))
-
-from images import Slide, Atlas
-from constants import FSR, DSR, FSL, DSL
+from demo import Demo
 from pages import Starter
 
-root = tk.Tk()
-slides: list[Slide] = []
-atlases = {
-    FSR: Atlas(),
-    DSR: Atlas(),
-    FSL: Atlas(),
-    DSL: Atlas(),
-    'names': None
-}
+class StarterDemo(Demo):
 
+    def __init__(self):
+        super().__init__()
+        self.demo_widget = Starter(self.widget_frame, self.slides, self.atlases)
 
-demo = Starter(root, slides, atlases)
-demo.activate()
-root.mainloop()
+    def done(self):
+        super().done()
+
+demo = StarterDemo()
+demo.run()

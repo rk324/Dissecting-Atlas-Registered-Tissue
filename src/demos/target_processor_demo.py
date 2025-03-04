@@ -1,30 +1,13 @@
-import tkinter as tk
-from tkinter import ttk
-import sys
-import os
-sys.path.append(os.path.join('src','main'))
+from demo import Demo
+from pages import TargetProcessor
 
-from images import Slide, Atlas
-from constants import FSR, DSR, FSL, DSL
-from pages import Starter, SlideProcessor, TargetProcessor
-print('hello')
+class TargetProcessorDemo(Demo):
 
-root = tk.Tk()
-slides: list[Slide] = []
-atlases = {
-    FSR: Atlas(),
-    DSR: Atlas(),
-    FSL: Atlas(),
-    DSL: Atlas(),
-    'names': None
-}
+    def __init__(self):
+        super().__init__()
+        self.load("post_slide_processor.pkl")
+        self.demo_widget = TargetProcessor(self.widget_frame, self.slides, self.atlases)
+        self.checkpoint_name = "post_target_processor.pkl"
 
-starter = Starter(root, slides, atlases)
-starter.load_atlas_info(os.path.join('atlases','allen_nissl_100um'))
-starter.load_slides('demo_images')
-slide_processor = SlideProcessor(root, slides, atlases)
-# TODO: add targets and mark dummy calibration points
-
-demo = TargetProcessor(root, slides, atlases)
-demo.activate()
-root.mainloop()
+demo = TargetProcessorDemo()
+demo.run()

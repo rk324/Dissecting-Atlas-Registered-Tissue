@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import sys
 import os
+import pickle
 sys.path.append(os.path.join('src','main'))
 
 from images import Slide, Atlas
@@ -26,7 +27,11 @@ class Demo(tk.Tk):
             'names': None
         }
 
+        self.path_checkpoints = os.path.join("src", "demos", "checkpoints")
+
+        ### OVERRIDE IN CHILD ###
         self.demo_widget = None # in child class, instantiate demo_widget
+        self.checkpoint_name = 'post_demo.pkl'
     
     def run(self):
         self.widget_frame.pack()
@@ -34,5 +39,16 @@ class Demo(tk.Tk):
         self.demo_widget.activate()
         self.mainloop()
 
+    def load(self, checkpoint):
+        with open(os.path.join(self.path_checkpoints, checkpoint), 'rb') as f:
+            data = pickle.load(f)
+            self.slides = data['slides']
+            self.atlases = data['atlases']
+
+
     def done(self):
         self.demo_widget.done()
+        data = {"slides": self.slides, "atlases": self.atlases}
+        with open(os.path.join(self.path_checkpoints, self.checkpoint_name), 'wb') as f:
+            pickle.dump(data, f)
+        self.destroy()

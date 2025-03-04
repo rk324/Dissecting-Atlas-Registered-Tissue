@@ -34,7 +34,7 @@ class Demo(tk.Tk):
         self.checkpoint_name = 'post_demo.pkl'
     
     def run(self):
-        self.widget_frame.pack()
+        self.widget_frame.pack(expand=True, fill=tk.BOTH)
         self.checkpoint_btn.pack()
         self.demo_widget.activate()
         self.mainloop()

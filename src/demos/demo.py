@@ -37,4 +37,3 @@ class Demo():
 
     def done(self):
         self.demo_widget.done()
-        # save slides, atlases in pickle

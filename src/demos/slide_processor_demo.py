@@ -1,27 +1,21 @@
-import tkinter as tk
-from tkinter import ttk
-import sys
-import os
-sys.path.append(os.path.join('src','main'))
+from demo import Demo
+from pages import SlideProcessor
 
-from images import Slide, Atlas
-from constants import FSR, DSR, FSL, DSL
-from pages import Starter, SlideProcessor
-print('hello')
+class SlideProcessorDemo(Demo):
 
-root = tk.Tk()
-slides: list[Slide] = []
-atlases = {
-    FSR: Atlas(),
-    DSR: Atlas(),
-    FSL: Atlas(),
-    DSL: Atlas(),
-    'names': None
-}
+    def __init__(self):
+        super().__init__()
+        self.load("post_starter.pkl")
+        self.demo_widget = SlideProcessor(self.widget_frame, self.slides, self.atlases)
+        self.checkpoint_name = "post_slide_processor.pkl"
 
+
+demo = SlideProcessorDemo()
+demo.run()
+'''
 starter = Starter(root, slides, atlases)
 starter.load_atlas_info(os.path.join('atlases','allen_nissl_100um'))
 starter.load_slides('demo_images')
 demo = SlideProcessor(root, slides, atlases)
 demo.activate()
-root.mainloop()
+root.mainloop()'''

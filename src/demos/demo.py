@@ -6,15 +6,14 @@ sys.path.append(os.path.join('src','main'))
 
 from images import Slide, Atlas
 from constants import FSR, DSR, FSL, DSL
-from pages import Starter
 
-class Demo():
+class Demo(tk.Tk):
 
     def __init__(self):
-        self.root = tk.Tk()
-        self.widget_frame = tk.Frame(self.root)
+        super().__init__()
+        self.widget_frame = tk.Frame(self)
         self.checkpoint_btn = ttk.Button(
-            master=self.root,
+            master=self,
             text='Done',
             command = self.done
         )
@@ -27,13 +26,13 @@ class Demo():
             'names': None
         }
 
-        self.demo_widget = None
+        self.demo_widget = None # in child class, instantiate demo_widget
     
     def run(self):
         self.widget_frame.pack()
         self.checkpoint_btn.pack()
         self.demo_widget.activate()
-        self.root.mainloop()
+        self.mainloop()
 
     def done(self):
         self.demo_widget.done()

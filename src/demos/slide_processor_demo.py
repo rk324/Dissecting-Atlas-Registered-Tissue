@@ -9,6 +9,5 @@ class SlideProcessorDemo(Demo):
         self.demo_widget = SlideProcessor(self.widget_frame, self.slides, self.atlases)
         self.checkpoint_name = "post_slide_processor.pkl"
 
-
 demo = SlideProcessorDemo()
 demo.run()

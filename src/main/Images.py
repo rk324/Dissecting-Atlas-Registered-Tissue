@@ -135,44 +135,6 @@ class Atlas(Image):
         
         return STalign.interp3D(xV, vol[None].astype('float64'), 
                                 transformed_slice.transpose(3,0,1,2))[0,0,...].numpy()
-        
-    def set_LT(self):
-        
-        # reset L and T
-        self.L = np.array([[1,0,0],
-                           [0,1,0],
-                           [0,0,1]])
-        self.T = np.array([0, 0, 0])   
-
-        # apply rotations and translations
-        self.L = self.L@self.x_rot(self.thetas[2].get())
-        self.L = self.L@self.y_rot(self.thetas[1].get())
-        self.L = self.L@self.z_rot(self.thetas[0].get())
-        self.T[0] += self.curr_slice.get()
-
-    def z_rot(self, deg):
-        rads = self.deg2rad(deg)
-        return np.array([
-                            [1,       0     ,       0      ],
-                            [0, np.cos(rads), -np.sin(rads)],
-                            [0, np.sin(rads), np.cos(rads) ]
-                        ])
-
-    def y_rot(self, deg):
-        rads = self.deg2rad(deg)
-        return np.array([
-                            [ np.cos(rads), 0, np.sin(rads)],
-                            [        0    , 1,     0       ],
-                            [-np.sin(rads), 0, np.cos(rads)]
-                        ])
-
-    def x_rot(self, deg):
-        rads = self.deg2rad(deg)
-        return np.array([
-                            [np.cos(rads), -np.sin(rads), 0],
-                            [np.sin(rads),  np.cos(rads), 0],
-                            [       0      ,        0   , 1]
-                        ])
 
 class Target(Image): 
 
@@ -186,8 +148,7 @@ class Target(Image):
 
         # Affine Estimation Properties
         self.thetas = np.array([0, 0, 0]) # z, y, x order
-        self.T_estim = np.array([0, 0, 0]) # z, y, x order 
-        self.L_estim = np.eye(3)
+        self.T_estim = np.array([0, 0, 0]) # z, y, x order
         
         # Image Estimations using Affine Properties and Atlas
         self.seg_estim = Image()
@@ -212,13 +173,17 @@ class Target(Image):
         """
         self.img_original = raw_img_data.copy()
         original_shape = self.img_original.shape
-        ds_tuple = tuple([ds_factor if i<2 else 1 
-                    for i in range(len(original_shape))])
 
-        self.img_downscaled = ski.transform.downscale_local_mean(
-            self.img_original,
-            ds_tuple
-        )
+        if ds_factor != 1:
+            ds_tuple = tuple([ds_factor if i<2 else 1 
+                        for i in range(len(original_shape))])
+
+            self.img_downscaled = ski.transform.downscale_local_mean(
+                self.img_original,
+                ds_tuple
+            )
+        else:
+            self.img_downscaled = self.img_original.copy()
 
         self.img = self.img_downscaled.copy()
         if len(original_shape)==3:
@@ -228,8 +193,9 @@ class Target(Image):
                 self.img = ski.color.rgba2rgb(self.img)
                 self.img = ski.color.rgb2gray(self.img)
 
-        # invert colors if more pixels at full intensity than at 0
-        if np.count_nonzero(self.img==1) > np.count_nonzero(self.img==0):
+        # invert colors if less pixels at full intensity than at 0
+        if np.count_nonzero(self.img>=.9) > np.count_nonzero(self.img<=0.1):
+            print('inverting colors')
             self.img = 1-self.img
 
         self.pix_dim = pix_dim
@@ -297,7 +263,45 @@ class Target(Image):
             self.landmarks['target'].pop(-1)
             self.landmarks['atlas'].pop(-1)
             self.num_landmarks -= 1
-            
+    
+    def get_LT(self):
+        # thetas follows [z,y,x] format where 'z' represents rotations about the z axis
+        L_estim = np.array([[1,0,0],
+                            [0,1,0],
+                            [0,0,1]])
+                            
+        L_estim = L_estim@self.x_rot(self.thetas[2])
+        L_estim = L_estim@self.y_rot(self.thetas[1])
+        L_estim = L_estim@self.z_rot(self.thetas[0])
+        return L_estim, self.T_estim
+    
+    def deg2rad(self, deg):
+        return np.pi*deg/180
+
+    def z_rot(self, deg):
+        rads = self.deg2rad(deg)
+        return np.array([
+                            [1,       0     ,       0      ],
+                            [0, np.cos(rads), -np.sin(rads)],
+                            [0, np.sin(rads), np.cos(rads) ]
+                        ])
+
+    def y_rot(self, deg):
+        rads = self.deg2rad(deg)
+        return np.array([
+                            [ np.cos(rads), 0, np.sin(rads)],
+                            [        0    , 1,     0       ],
+                            [-np.sin(rads), 0, np.cos(rads)]
+                        ])
+
+    def x_rot(self, deg):
+        rads = self.deg2rad(deg)
+        return np.array([
+                            [np.cos(rads), -np.sin(rads), 0],
+                            [np.sin(rads),  np.cos(rads), 0],
+                            [       0      ,        0   , 1]
+                        ])
+
 
 class Slide(Image):
 

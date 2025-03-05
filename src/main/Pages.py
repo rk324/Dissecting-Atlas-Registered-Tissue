@@ -48,7 +48,7 @@ class Page(tk.Frame, ABC):
             return self.canvas.get_tk_widget()
 
         def update(self):
-            self.canvas.draw()
+            self.canvas.draw_idle()
             self.canvas.flush_events()
 
     def activate(self):
@@ -343,6 +343,8 @@ class SlideProcessor(Page):
             )
 
     def show_widgets(self):
+        
+        self.update() # update buttons, slideviewer, stalign params
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -385,8 +387,6 @@ class SlideProcessor(Page):
             entry = self.advanced_entries[key]
             label.grid(row=i, column=0)
             entry.grid(row=i, column=1, sticky='ew')
-
-        self.update() # update buttons, slideviewer, stalign params
 
     def show_slide(self, event=None):
         self.currSlide = self.slides[self.get_index()]
@@ -605,18 +605,205 @@ class SlideProcessor(Page):
                 slide.remove_target() # remove targets
         super().cancel()
 
-class TargetProccessor(Page):
+class TargetProcessor(Page):
 
     def __init__(self, master, slides, atlases):
         super().__init__(master, slides, atlases)
         self.header = "Select landmark points and adjust affine."
         self.currSlide = None
+        self.currTarget = None
 
     def create_widgets(self):
-        pass
+        self.menu_frame = tk.Frame(self)
+        self.slice_frame = tk.Frame(self)
+
+        self.slide_nav_label = ttk.Label(self.menu_frame, text="Slide: ")
+        self.curr_slide_var = tk.IntVar(master=self.menu_frame, value='1')
+        self.slide_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[],
+            state='readonly',
+            textvariable=self.curr_slide_var,
+        )
+        self.slide_nav_combo.bind('<<ComboboxSelected>>', self.switch_slides)
+
+        self.target_nav_label = ttk.Label(self.menu_frame, text="Target: ")
+        self.curr_target_var = tk.IntVar(master=self.menu_frame, value='1')
+        self.target_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[],
+            state='readonly',
+            textvariable=self.curr_target_var,
+        )
+        self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
+
+        self.menu_buttons_frame = tk.Frame(self.menu_frame)
+        self.remove_btn = ttk.Button(
+            master=self.menu_buttons_frame,
+            text='Remove Point',
+            command = self.remove,
+            state='disabled'
+        )
+        self.commit_btn = ttk.Button(
+            master=self.menu_buttons_frame,
+            text='Add Point',
+            command=self.commit,
+            state='disabled'
+        )
+        self.clear_btn = ttk.Button(
+            master=self.menu_buttons_frame,
+            text='Clear uncommitted',
+            command=self.clear,
+            state='disabled'
+        )
+
+        self.slice_viewer = self.TkFigure(self.slice_frame, num_cols=2, toolbar=False)
+        self.click_event = self.slice_viewer.canvas.mpl_connect('button_press_event', self.on_click)
+        
+
+        self.rotation_frame = tk.Frame(self.slice_frame)
+        self.thetas = [tk.IntVar(self.rotation_frame, value=0) for i in range(3)]
+        self.x_rotation_scale = ttk.Scale(
+            master=self.rotation_frame, 
+            from_=90, to=-90, 
+            orient='vertical', 
+            variable=self.thetas[2],
+            command=self.show_atlas
+        )
+        self.y_rotation_scale = ttk.Scale(
+            master=self.rotation_frame, 
+            from_=90, to=-90, 
+            orient='vertical', 
+            variable=self.thetas[1],
+            command=self.show_atlas
+        )
+        self.z_rotation_scale = ttk.Scale(
+            master=self.rotation_frame, 
+            from_=180, to=-180, 
+            orient='vertical', 
+            variable=self.thetas[0],
+            command=self.show_atlas
+        )
+
+        self.translation_frame = tk.Frame(self.slice_frame)
+        self.translation = tk.DoubleVar(self.translation_frame, value=0)
+        self.translation_scale = ttk.Scale(
+            master=self.translation_frame,
+            from_=self.atlases[DSR].pix_loc[0][0],
+            to_=self.atlases[DSR].pix_loc[0][-1],
+            orient='horizontal',
+            variable=self.translation,
+            command=self.show_atlas
+        )
 
     def show_widgets(self):
-        pass
+        
+        self.update()
+
+        self.menu_frame.pack(fill=tk.X)
+        self.slice_frame.pack(expand=True, fill=tk.BOTH)
+        self.slice_frame.grid_rowconfigure(0, weight=1)
+        self.slice_frame.grid_columnconfigure(0, weight=1)
+        self.slice_frame.grid_columnconfigure(1, weight=1)
+
+        self.slide_nav_label.pack(side=tk.LEFT)
+        self.slide_nav_combo.pack(side=tk.LEFT)
+        
+        self.target_nav_combo.pack(side=tk.RIGHT)
+        self.target_nav_label.pack(side=tk.RIGHT)
+
+        self.menu_buttons_frame.pack()
+        self.remove_btn.pack(side=tk.LEFT)
+        self.commit_btn.pack(side=tk.LEFT)
+        self.clear_btn.pack(side=tk.LEFT)
+
+        self.slice_viewer.get_widget().grid(
+            row=0, 
+            column=0, 
+            columnspan=2, 
+            sticky='nsew'
+        )
+        
+        self.rotation_frame.grid(row=0, column=2, sticky='nsew')
+        self.x_rotation_scale.pack(side=tk.LEFT,fill=tk.Y)
+        self.y_rotation_scale.pack(side=tk.LEFT,fill=tk.Y)
+        self.z_rotation_scale.pack(side=tk.LEFT,fill=tk.Y)
+        
+        self.translation_frame.grid(row=1,column=1, sticky='nsew')
+        self.translation_scale.pack(fill=tk.X)
+
+    def update(self, event=None):
+        self.currSlide = self.slides[self.get_slide_index()]
+        self.slide_nav_combo.config(
+            values=[i+1 for i in range(len(self.slides))]
+        )
+
+        self.currTarget = self.currSlide.targets[self.get_target_index()]
+        self.target_nav_combo.config(
+            values=[i+1 for i in range(self.currSlide.numTargets)]
+        )
+        for i in range(3): self.thetas[i].set(self.currTarget.thetas[i])
+        self.translation.set(self.currTarget.T_estim[0])
+
+        # TODO: update currTarget
+        self.show_target()
+        self.show_atlas()
+
+    def switch_slides(self, event=None):
+        self.curr_target_var.set(1)
+        self.update()
+
+    def show_target(self):
+        # show target image, show landmark points
+        self.slice_viewer.axes[0].cla()
+        self.slice_viewer.axes[0].set_axis_off()
+        self.slice_viewer.axes[0].set_title(f"Slide #{self.get_slide_index()+1}\nSlice #{self.get_target_index()+1}")
+        self.slice_viewer.axes[0].imshow(self.currTarget.img, cmap='Greys')
+        self.slice_viewer.update()
+
+    def show_atlas(self, event=None):
+        # update L, T, generate atlas image, show landmark points
+        self.slice_viewer.axes[1].set_title("Atlas")
+        self.slice_viewer.axes[1].set_axis_off()
+
+        for i in range(3): self.currTarget.thetas[i] = self.thetas[i].get()
+        self.currTarget.T_estim[0] = self.translation.get()
+
+        if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
+            atlas = self.atlases[DSR]
+        else:
+            atlas = self.atlases[FSR]
+
+        xE = [ALPHA*x for x in atlas.pix_loc]
+        XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
+        L,T = self.currTarget.get_LT()
+        slice_transformed = (L @ XE[...,None])[...,0] + T
+        self.slice_viewer.axes[1].imshow(atlas.get_img(slice_transformed))
+        self.slice_viewer.update()
+
+    def on_click(self, event):
+        print(event)
+
+    def remove(self):
+        print("removing point")
+
+    def commit(self):
+        print("committing point")
+
+    def clear(self):
+        print("clearing point")
+
+    def done(self):
+        super().done()
+
+    def cancel(self):
+        super().cancel()
+    
+    def get_slide_index(self):
+        return self.curr_slide_var.get()-1
+    
+    def get_target_index(self):
+        return self.curr_target_var.get()-1
 
 class STalign_Prep(Page):
     

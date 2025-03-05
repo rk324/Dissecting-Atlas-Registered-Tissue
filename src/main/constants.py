@@ -11,3 +11,5 @@ DEFAULT_STALIGN_PARAMS = {
             'sigmaR': 1e8,
             'resolution': 250
         }
+
+ALPHA = 1.25

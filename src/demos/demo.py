@@ -45,7 +45,6 @@ class Demo(tk.Tk):
             self.slides = data['slides']
             self.atlases = data['atlases']
 
-
     def done(self):
         self.demo_widget.done()
         data = {"slides": self.slides, "atlases": self.atlases}

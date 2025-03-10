@@ -619,6 +619,22 @@ class TargetProcessor(Page):
         self.new_points = [[],[]]
         self.point_size = 4
 
+    def activate(self):
+        if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
+            self.preferred_atlas = "downscaled"
+            atlas = self.atlases[DSR]
+        else:
+            self.preferred_atlas = "full size"
+            atlas = self.atlases[FSR]
+
+        for slide in self.slides:
+            for target in slide.targets:
+                self.update_img_estim(target)
+                target.img_estim.set_pix_dim(atlas.pix_dim[1:]*ALPHA)
+                target.img_estim.set_pix_loc()
+
+        super().activate()
+
     def create_widgets(self):
         self.menu_frame = tk.Frame(self)
         self.slice_frame = tk.Frame(self)
@@ -803,6 +819,21 @@ class TargetProcessor(Page):
 
         self.slice_viewer.update()
 
+    def update_img_estim(self, target):
+
+        if self.preferred_atlas == "downscaled":
+            atlas = self.atlases[DSR]
+        else:
+            atlas = self.atlases[FSR]
+
+        xE = [ALPHA*x for x in atlas.pix_loc]
+        XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
+        L,T = target.get_LT()
+        slice_transformed = (L @ XE[...,None])[...,0] + T
+        slice_img = atlas.get_img(slice_transformed)
+        
+        target.img_estim.load_img(slice_img)
+
     def show_atlas(self, event=None):
         self.slice_viewer.axes[1].cla()
         self.slice_viewer.axes[1].set_title("Atlas")
@@ -811,20 +842,11 @@ class TargetProcessor(Page):
         for i in range(3): 
             self.currTarget.thetas[i] = self.thetas[i].get()
             self.rotation_labels[i].config(text=self.thetas[i].get())
-        
+
         self.currTarget.T_estim[0] = self.translation.get()
         self.translation_label.config(text=self.translation.get())
 
-        if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
-            atlas = self.atlases[DSR]
-        else:
-            atlas = self.atlases[FSR]
-
-        xE = [ALPHA*x for x in atlas.pix_loc]
-        XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
-        L,T = self.currTarget.get_LT()
-        slice_transformed = (L @ XE[...,None])[...,0] + T
-        self.currTarget.img_estim.img = atlas.get_img(slice_transformed)
+        self.update_img_estim(self.currTarget)
         self.slice_viewer.axes[1].imshow(self.currTarget.img_estim.get_img(), cmap='Grays')
         
         point = self.new_points[1]
@@ -902,7 +924,7 @@ class TargetProcessor(Page):
     def done(self):
         # estimate pixel dimensions
         for slide in self.slides:
-            slide.estimate_pix_dim() # TODO: debug
+            slide.estimate_pix_dim()
         super().done()
 
     def cancel(self):

@@ -13,3 +13,7 @@ DEFAULT_STALIGN_PARAMS = {
         }
 
 ALPHA = 1.25
+
+COMMITTED_COLOR = 'lime'
+REMOVABLE_COLOR = 'orange'
+NEW_COLOR = 'red'

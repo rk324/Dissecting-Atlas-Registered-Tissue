@@ -659,7 +659,6 @@ class TargetProcessor(Page):
 
         self.slice_viewer = self.TkFigure(self.slice_frame, num_cols=2, toolbar=False)
         self.click_event = self.slice_viewer.canvas.mpl_connect('button_press_event', self.on_click)
-        
 
         self.rotation_frame = tk.Frame(self.slice_frame)
         self.thetas = [tk.IntVar(self.rotation_frame, value=0) for i in range(3)]
@@ -684,6 +683,10 @@ class TargetProcessor(Page):
             variable=self.thetas[0],
             command=self.show_atlas
         )
+        self.rotation_labels = [ttk.Label(
+                                    master=self.rotation_frame,
+                                    text=self.thetas[i].get()
+                                ) for i in range(3)]
 
         self.translation_frame = tk.Frame(self.slice_frame)
         self.translation = tk.DoubleVar(self.translation_frame, value=0)
@@ -694,6 +697,10 @@ class TargetProcessor(Page):
             orient='horizontal',
             variable=self.translation,
             command=self.show_atlas
+        )
+        self.translation_label = ttk.Label(
+            master=self.translation_frame,
+            text=self.translation.get()
         )
 
     def show_widgets(self):
@@ -725,12 +732,17 @@ class TargetProcessor(Page):
         )
         
         self.rotation_frame.grid(row=0, column=2, sticky='nsew')
-        self.x_rotation_scale.pack(side=tk.LEFT,fill=tk.Y)
-        self.y_rotation_scale.pack(side=tk.LEFT,fill=tk.Y)
-        self.z_rotation_scale.pack(side=tk.LEFT,fill=tk.Y)
+        self.rotation_frame.grid_rowconfigure(0, weight=1)
+        self.x_rotation_scale.grid(row=0, column=0, sticky='nsew')
+        self.y_rotation_scale.grid(row=0, column=1, sticky='nsew')
+        self.z_rotation_scale.grid(row=0, column=2, sticky='nsew')
+        self.rotation_labels[2].grid(row=1, column=0)
+        self.rotation_labels[1].grid(row=1, column=1)
+        self.rotation_labels[0].grid(row=1, column=2)
         
         self.translation_frame.grid(row=1,column=1, sticky='nsew')
         self.translation_scale.pack(fill=tk.X)
+        self.translation_label.pack()
 
     def update(self, event=None):
         self.currSlide = self.slides[self.get_slide_index()]
@@ -766,8 +778,12 @@ class TargetProcessor(Page):
         self.slice_viewer.axes[1].set_title("Atlas")
         self.slice_viewer.axes[1].set_axis_off()
 
-        for i in range(3): self.currTarget.thetas[i] = self.thetas[i].get()
+        for i in range(3): 
+            self.currTarget.thetas[i] = self.thetas[i].get()
+            self.rotation_labels[i].config(text=self.thetas[i].get())
+        
         self.currTarget.T_estim[0] = self.translation.get()
+        self.translation_label.config(text=self.translation.get())
 
         if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
             atlas = self.atlases[DSR]
@@ -778,7 +794,7 @@ class TargetProcessor(Page):
         XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
         L,T = self.currTarget.get_LT()
         slice_transformed = (L @ XE[...,None])[...,0] + T
-        self.slice_viewer.axes[1].imshow(atlas.get_img(slice_transformed))
+        self.slice_viewer.axes[1].imshow(atlas.get_img(slice_transformed), cmap='Grays')
         self.slice_viewer.update()
 
     def on_click(self, event):

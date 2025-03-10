@@ -203,7 +203,7 @@ class Target(Image):
         if self.pix_dim is not None:
             self.set_pix_loc()
 
-    def estimate_pix_dim(self, threshold):
+    def estimate_pix_dim(self, threshold=.1):
         """
         Estimates **pix_dim** by determining area of tissue in 
         **img_estim** and in **img**. The ratio between these
@@ -219,7 +219,7 @@ class Target(Image):
         
         # create contour of in both images
         contour_target = contour(self.img)
-        contour_atlas = contour(self.img_estim.get_img())
+        contour_atlas = contour(self.img_estim.img)
 
         # get areas of contours
         area_target = shapely.Polygon(contour_target).area

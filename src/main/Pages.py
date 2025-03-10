@@ -394,8 +394,8 @@ class SlideProcessor(Page):
         self.slide_viewer.axes[0].imshow(self.currSlide.get_img())
         
         for i,target in enumerate(self.currSlide.targets):
-            edgecolor = 'lime'
-            if i == self.currSlide.numTargets-1: edgecolor = 'orange'
+            edgecolor = COMMITTED_COLOR
+            if i == self.currSlide.numTargets-1: edgecolor = REMOVABLE_COLOR
             self.slide_viewer.axes[0].add_patch(
                 mpl.patches.Rectangle(
                     (target.x_offset, target.y_offset),
@@ -413,17 +413,21 @@ class SlideProcessor(Page):
             self.slide_viewer.axes[0].scatter(
                 points[:-1,0], 
                 points[:-1,1], 
-                color='lime', 
+                color=COMMITTED_COLOR, 
                 s=point_size
             )
             self.slide_viewer.axes[0].scatter(
                 points[-1,0], 
                 points[-1,1], 
-                color='orange', 
+                color=REMOVABLE_COLOR, 
                 s=point_size
             )
         if not (self.newPointX == -1 and self.newPointY == -1):
-            self.slide_viewer.axes[0].scatter(self.newPointX, self.newPointY, color='red', s=point_size)
+            self.slide_viewer.axes[0].scatter(
+                self.newPointX, self.newPointY, 
+                color=NEW_COLOR, 
+                s=point_size
+            )
 
         self.slide_viewer.update()
 
@@ -612,6 +616,8 @@ class TargetProcessor(Page):
         self.header = "Select landmark points and adjust affine."
         self.currSlide = None
         self.currTarget = None
+        self.new_points = [[],[]]
+        self.point_size = 4
 
     def create_widgets(self):
         self.menu_frame = tk.Frame(self)
@@ -757,9 +763,11 @@ class TargetProcessor(Page):
         for i in range(3): self.thetas[i].set(self.currTarget.thetas[i])
         self.translation.set(self.currTarget.T_estim[0])
 
-        # TODO: update currTarget
+        self.new_points = [[],[]] # reset new points
+
         self.show_target()
         self.show_atlas()
+        self.update_buttons()
 
     def switch_slides(self, event=None):
         self.curr_target_var.set(1)
@@ -771,10 +779,32 @@ class TargetProcessor(Page):
         self.slice_viewer.axes[0].set_axis_off()
         self.slice_viewer.axes[0].set_title(f"Slide #{self.get_slide_index()+1}\nSlice #{self.get_target_index()+1}")
         self.slice_viewer.axes[0].imshow(self.currTarget.img, cmap='Greys')
+        
+        point = self.new_points[0]
+        if len(point) == 2: 
+            self.slice_viewer.axes[0].scatter(
+                point[1], point[0], 
+                color=NEW_COLOR,
+                s=self.point_size
+            )
+
+        landmarks = np.array(self.currTarget.landmarks['target'])
+        if len(landmarks) > 0:
+            self.slice_viewer.axes[0].scatter(
+                landmarks[:-1, 1], landmarks[:-1, 0],
+                color=COMMITTED_COLOR,
+                s=self.point_size
+            )
+            self.slice_viewer.axes[0].scatter(
+                landmarks[-1, 1], landmarks[-1, 0],
+                color=REMOVABLE_COLOR,
+                s=self.point_size
+            )
+
         self.slice_viewer.update()
 
     def show_atlas(self, event=None):
-        # update L, T, generate atlas image, show landmark points
+        self.slice_viewer.axes[1].cla()
         self.slice_viewer.axes[1].set_title("Atlas")
         self.slice_viewer.axes[1].set_axis_off()
 
@@ -794,25 +824,94 @@ class TargetProcessor(Page):
         XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
         L,T = self.currTarget.get_LT()
         slice_transformed = (L @ XE[...,None])[...,0] + T
-        self.slice_viewer.axes[1].imshow(atlas.get_img(slice_transformed), cmap='Grays')
+        self.currTarget.img_estim.img = atlas.get_img(slice_transformed)
+        self.slice_viewer.axes[1].imshow(self.currTarget.img_estim.get_img(), cmap='Grays')
+        
+        point = self.new_points[1]
+        if len(point) == 2: 
+            self.slice_viewer.axes[1].scatter(
+                point[1], point[0], 
+                color='red',
+                s=self.point_size
+            )
+
+        landmarks = np.array(self.currTarget.landmarks['atlas'])
+        if len(landmarks) > 0:
+            self.slice_viewer.axes[1].scatter(
+                landmarks[:-1, 1], landmarks[:-1, 0],
+                color=COMMITTED_COLOR,
+                s=self.point_size
+            )
+            self.slice_viewer.axes[1].scatter(
+                landmarks[-1, 1], landmarks[-1, 0],
+                color=REMOVABLE_COLOR,
+                s=self.point_size
+            )
+        
         self.slice_viewer.update()
 
+    def update_buttons(self):
+
+        canRemove = self.currTarget.num_landmarks > 0
+        canAdd = len(self.new_points[0]) == 2 and len(self.new_points[1]) == 2
+        canClear = len(self.new_points[0]) == 2 or len(self.new_points[1]) == 2
+
+        if canRemove:
+            self.remove_btn.config(state='active')
+        else:
+            self.remove_btn.config(state='disabled')
+        
+        if canAdd:
+            self.commit_btn.config(state='active')
+        else:
+            self.commit_btn.config(state='disabled')
+        
+        if canClear:
+            self.clear_btn.config(state='active')
+        else:
+            self.clear_btn.config(state='disabled')
+
     def on_click(self, event):
-        print(event)
+        if event.inaxes is None: return
+
+        new_x, new_y = int(event.xdata), int(event.ydata)
+        if event.inaxes is self.slice_viewer.axes[0]:
+            # clicked on target
+            self.new_points[0] = [new_y, new_x]
+            self.show_target()
+        elif event.inaxes is self.slice_viewer.axes[1]:
+            # clicked on atlas
+            self.new_points[1] = [new_y, new_x]
+            self.show_atlas()
+        
+        self.update_buttons()
 
     def remove(self):
-        print("removing point")
+        self.currTarget.remove_landmarks()
+        self.update()
 
     def commit(self):
-        print("committing point")
+        self.currTarget.add_landmarks(self.new_points[0], self.new_points[1])
+        self.new_points = [[],[]]
+        self.update()
 
     def clear(self):
-        print("clearing point")
+        self.new_points = [[],[]]
+        self.update()
 
     def done(self):
+        # estimate pixel dimensions
+        for slide in self.slides:
+            slide.estimate_pix_dim() # TODO: debug
         super().done()
 
     def cancel(self):
+        # clear affine estimation and landmark points
+        for slide in self.slides:
+            for target in slide.targets:
+                target.thetas = np.array([0, 0, 0])
+                target.T_estim = np.array([0, 0, 0])
+                for i in range(target.num_landmarks): target.remove_landmarks()
         super().cancel()
     
     def get_slide_index(self):

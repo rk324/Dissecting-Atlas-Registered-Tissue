@@ -1,18 +1,19 @@
 import tkinter as tk
 from tkinter import ttk
+import matplotlib as mpl
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
+NavigationToolbar2Tk)
 import os
-from images import *
-from constants import *
 import torch
 import shapely
 import pandas as pd
 import numpy as np
 from sklearn.cluster import dbscan
 
-import matplotlib as mpl
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
-NavigationToolbar2Tk)
+from images import *
+from constants import *
+from utils import *
 
 from abc import ABC, abstractmethod
 
@@ -936,8 +937,6 @@ class TargetProcessor(Page):
         # estimate pixel dimensions
         for slide in self.slides:
             slide.estimate_pix_dim()
-
-        # process points
         super().done()
 
     def cancel(self):
@@ -955,98 +954,102 @@ class TargetProcessor(Page):
     def get_target_index(self):
         return self.curr_target_var.get()-1
 
-
 class STalign_Runner(Page):
 
-    def __init__(self, prev):
-        super().__init__(prev.master)
-        self.header='''Enter desired parameters. Recommended parameters loaded. Click 'Start' when ready
-
-        nt: Number of timesteps for integrating velocity field
-        niter: Number of iterations of gradient descent optimization
-        epL: Gradient descent step size for linear part of affine
-        epT: Gradient descent step size of translation part of affine
-        epV: Gradient descent step size for velocity field
-        sigmaM: Controls matching accuracy with smaller corresponding to more accurate. 
-        sigmaR: Standard deviation for regularization- Smaller means smoother transformation
-        sigmaP: Standard deviation for matching of points
-        a: Smoothness scale of velocity field
-        '''
-        self.run_complete = False
-
-        self.atlas = prev.atlas
-        self.target = prev.target
-        self.points = prev.points
-
-        W = self.target.img
-        A = self.atlas.img # TODO: add feature to enable quick run wherein we use downsampled atlas and target
-        xI = self.atlas.pix_loc
-        xJ = self.target.pix_loc
-        slice = self.atlas.curr_slice.get()
-
-        scale_x = 1
-        scale_y = 1
-        scale_z = 1
-
-        # set device if cuda if possible
-        self.device = 'cpu'
-        if torch.cuda.is_available(): self.device = 'cuda'
-
-        self.J = W[None] / np.mean(np.abs(W))
-        self.I = A[None] / np.mean(np.abs(A), keepdims=True)
-        self.I = np.concatenate((self.I, (self.I - np.mean(self.I))**2))
-
-        scale_matrix = np.diagflat([scale_z, scale_y, scale_x])
-        self.T = -self.atlas.T
-        self.L = np.linalg.inv(self.atlas.L)
-
-        int_checker = self.frame.register(self.isInt)
-
-        ### USER ENTERED PARAMETERS ###
-
-        defaults = {
-            'nt': 12,
-            'niter': 50,
-            'epL': 1e-9,
-            'epT': 1e-9,
-            'epV': 1e-7,
-            'sigmaM': 4e-1,
-            'sigmaR': 1e8,
-            'sigmaP': 1,
-            'a': 700,
-            }
-        
-        self.param_vars = [tk.IntVar(value=defaults[key]) for key in defaults]
-        labels = [ttk.Label(self.frame, text=key) for key in defaults]
-        entries = [ttk.Entry(self.frame, textvariable=p,
-                             validate='all',
-                             validatecommand=(int_checker, '%P', '%W')) for p in self.param_vars]
-
-        start_btn = ttk.Button(self.frame, text="Start", command=self.run) #start btn
-
-        for row,label in enumerate(labels): label.grid(row=row, column=0)
-        for row,entry in enumerate(entries): entry.grid(row=row, column=1, padx=10)
-        start_btn.grid(row=len(defaults), columnspan=2)
-
-    def isInt(self, P, W):
-        if str.isdigit(P) or P == '': return True
-        return False
+    def __init__(self, master, slides, atlases):
+        super().__init__(master, slides, atlases)
+        self.header = "Running STalign."
     
+    def activate(self):
+        label_txt = f'Estimated Time coming in later iteration' #TODO
+        self.info_label.config(text=label_txt)
+
+        if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
+            self.preferred_atlas = "downscaled"
+        else:
+            self.preferred_atlas = "full size"
+        
+        super().activate()
+
+    def create_widgets(self):
+        self.info_label = ttk.Label(
+            master=self,
+        )
+
+        self.start_btn = ttk.Button(
+            master=self,
+            command=self.run,
+            text='Run'
+        )
+
+    def show_widgets(self):
+        self.info_label.pack()
+        self.start_btn.pack()
+
     def run(self):
-        print('hi!')
-        # TODO: add call to stalign.LDDMM_3D here
-        with open('Data\\Transforms_samples\\sample_1.pickle', 'rb') as file: #TODO: remove this blurb
-            transform = pickle.load(file)
-        self.transform = transform
-
-        self.run_complete = True
-    
-    def next(self):
-        if not self.run_complete:
-            raise Exception('Cannot advance until run is complete')
+        print('running!')
+        # specify device
+        if torch.cuda.is_available():
+            device = 'cuda'
+        else:
+            device = 'cpu'
         
-        self.deactivate()
-        return Boundary_Generator(self)
+        for sn,slide in enumerate(self.slides):
+            for tn,target in enumerate(slide.targets):
+                self.info_label.config(text=f'Running STalign on Target #{tn+1} of Slide #{sn+1}')
+                self.update()
+
+                # processing points
+                points_target_pix = np.array(target.landmarks['target'])
+                points_atlas_pix = np.array(target.landmarks['atlas'])
+                
+                if self.preferred_atlas == 'downscaled':
+                    atlas = self.atlases[DSR]
+                else: atlas = self.atlases[FSR]
+                xE = [ALPHA*x for x in atlas.pix_loc]
+                XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
+                L,T = target.get_LT()
+                slice_pts = (L @ XE[...,None])[...,0] + T
+
+                points_atlas = slice_pts[0, points_atlas_pix[:,0], points_atlas_pix[:,1]]
+                points_target = points_target_pix * target.pix_dim + [target.pix_loc[0][0], target.pix_loc[1][0]]
+                points_target = np.insert(points_target, 0, 0, axis=1)
+
+                # processing input affine
+                L = np.linalg.inv(L)
+                T = -T
+
+                # final target and atlas processing
+                xI = self.atlases[FSR].pix_loc
+                I = self.atlases[FSR].img
+                I = I[None] / np.mean(np.abs(I), keepdims=True)
+                I = np.concatenate((I, (I-np.mean(I))**2))
+                xJ = target.pix_loc
+                J = target.img
+                J = J[None] / np.mean(np.abs(J))
+
+                target.transform = LDDMM_3D_LBGFS(
+                    xI,I,xJ,J,
+                    T=T,L=L,
+                    device=device,
+                    pointsI=points_atlas, # DO NOT CHANGE
+                    pointsJ=points_target, # DO NOT CHANGE
+                    nt=int(slide.stalign_params['timesteps']),
+                    niter=1,#int(slide.stalign_params['iterations']),
+                    sigmaM = slide.stalign_params['sigmaM'],
+                    sigmaP = slide.stalign_params['sigmaP'],
+                    sigmaR = slide.stalign_params['sigmaR'],
+                    a = slide.stalign_params['resolution'],
+                )
+
+        self.info_label.config(text="Done!")
+        self.update()
+    
+    def done():
+        super().done()
+    
+    def cancel():
+        super().cancel()
 
 class Boundary_Generator(Page):
 

@@ -73,7 +73,7 @@ class Atlas(Image):
         else:
             raise Exception(f'File type of {path} not supported.')
         
-        self.img =ski.transform.downscale_local_mean(self.img, ds_factor)
+        self.img = ski.transform.downscale_local_mean(self.img, ds_factor)
         self.pix_dim = ds_factor*self.pix_dim
         self.shape = self.img.shape
         self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
@@ -161,6 +161,9 @@ class Target(Image):
         }
         self.num_landmarks = 0
         
+        # Transform from atlas to target
+        self.transform = None
+
         # Initialize Segmentations
         self.seg_stalign = None
         self.seg_visualign = None

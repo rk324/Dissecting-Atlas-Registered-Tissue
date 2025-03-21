@@ -1098,6 +1098,25 @@ class STalignRunner(Page):
     def cancel(self):
         super().cancel()
 
+class VisuAlignRunner(Page):
+
+    def __init__(self, master, slides, atlases):
+        super().__init__(master, slides, atlases)
+        self.header = "Running VisuAlign."
+
+    def create_widgets(self):
+        pass
+
+    def show_widgets(self):
+        pass
+        
+    def done(self):
+        super().done()
+    
+    def cancel(self):
+        super().cancel()
+
+
 class Boundary_Generator(Page):
 
     def __init__(self, prev):

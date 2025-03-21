@@ -961,15 +961,49 @@ class STalign_Runner(Page):
         self.header = "Running STalign."
     
     def activate(self):
-        label_txt = f'Estimated Time coming in later iteration' #TODO
-        self.info_label.config(text=label_txt)
-
+        self.estimate_time()
         if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
             self.preferred_atlas = "downscaled"
         else:
             self.preferred_atlas = "full size"
-        
+
         super().activate()
+
+    def estimate_time(self):
+        totalIterations = 0
+        for slide in self.slides:
+            numIt = slide.stalign_params['iterations']
+            numTargets = slide.numTargets
+            totalIterations += numIt * numTargets
+        self.progress_bar.config(maximum=totalIterations)
+
+        time_sec = 3*totalIterations # ~3 sec/iteration
+        time_str = STalign_Runner.seconds_to_string(time_sec)
+
+        label_txt = f'Estimated Duration: {time_str}' #TODO
+        self.info_label.config(text=label_txt)
+
+    # converts number of seconds to a human readable string
+    def seconds_to_string(s):
+        units = {
+            "day":24*60*60,
+            "hour":60*60,
+            "minute":60,
+            "second":1
+        }
+        output_dict = {
+            "day":0,
+            "hour":0,
+            "minute":0,
+            "second":0
+        }
+
+        for unit,duration in units.items():
+            output_dict[unit] = int(s//duration)
+            s = s % duration
+        
+        output = [f'{value} {unit}(s)' for unit,value in output_dict.items() if value != 0]
+        return " ".join(output)
 
     def create_widgets(self):
         self.info_label = ttk.Label(
@@ -982,12 +1016,21 @@ class STalign_Runner(Page):
             text='Run'
         )
 
+        self.progress_bar = ttk.Progressbar(
+            master=self,
+            mode='determinate',
+            orient='horizontal',
+            value=0
+        )
+
     def show_widgets(self):
         self.info_label.pack()
         self.start_btn.pack()
 
     def run(self):
         print('running!')
+        self.start_btn.pack_forget()
+        self.progress_bar.pack()
         # specify device
         if torch.cuda.is_available():
             device = 'cuda'
@@ -996,7 +1039,9 @@ class STalign_Runner(Page):
         
         for sn,slide in enumerate(self.slides):
             for tn,target in enumerate(slide.targets):
-                self.info_label.config(text=f'Running STalign on Target #{tn+1} of Slide #{sn+1}')
+                label_txt = f'Running STalign on Target #{tn+1} of Slide #{sn+1}'
+                print(label_txt)
+                self.info_label.config(text=label_txt)
                 self.update()
 
                 # processing points
@@ -1035,20 +1080,22 @@ class STalign_Runner(Page):
                     pointsI=points_atlas, # DO NOT CHANGE
                     pointsJ=points_target, # DO NOT CHANGE
                     nt=int(slide.stalign_params['timesteps']),
-                    niter=1,#int(slide.stalign_params['iterations']),
+                    niter=int(slide.stalign_params['iterations']),
                     sigmaM = slide.stalign_params['sigmaM'],
                     sigmaP = slide.stalign_params['sigmaP'],
                     sigmaR = slide.stalign_params['sigmaR'],
                     a = slide.stalign_params['resolution'],
+                    progress_bar=self.progress_bar
                 )
 
         self.info_label.config(text="Done!")
+        self.progress_bar.pack_forget()
         self.update()
     
-    def done():
+    def done(self):
         super().done()
     
-    def cancel():
+    def cancel(self):
         super().cancel()
 
 class Boundary_Generator(Page):

@@ -1,15 +1,13 @@
 import torch
 import STalign
-import matplotlib.pyplot as plt
 import numpy as np
 
 # Modified version of STalign.LDDMM_3D_to_slice
 def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
-        L=None,T=None,A=None,v=None,xv=None,
-        a=500.0,p=2.0,expand=1.25,nt=3,
-        niter=5000,diffeo_start=0, epL=1e-6, epT=1e1, epV=1e3,
-        sigmaM=1.0,sigmaB=2.0,sigmaA=5.0,sigmaR=1e8,sigmaP=2e1,
-        device='cpu',dtype=torch.float64, muA=None, muB = None):
+                   L=None,T=None,A=None,v=None,xv=None,
+                   a=500.0,p=2.0,expand=1.25,nt=3,niter=5000,
+                   sigmaM=1.0,sigmaB=2.0,sigmaA=5.0,sigmaR=1e8,sigmaP=2e1,
+                   device='cpu',dtype=torch.float64, progress_bar=None):
 
         
     # check initial inputs and convert to torch
@@ -58,10 +56,6 @@ def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
     
     DV = torch.prod(dv)
     Ki = torch.fft.ifftn(K).real
-    fig,ax = plt.subplots()
-    ax.imshow(Ki[Ki.shape[0]//2].clone().detach().cpu().numpy(),vmin=0.0,extent=extentV)
-    ax.set_title('smoothing kernel')
-    fig.canvas.draw()
 
     # initialize weights
     WM = torch.ones(J[0].shape,dtype=J.dtype,device=J.device)*0.5
@@ -139,7 +133,7 @@ def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
         return E
     
     for it in range(niter):
-        print(f'Iteration #{it}:')
+        print(f'Iteration #{it+1}:')
 
         torch.autograd.set_detect_anomaly(True)
         optimizer.zero_grad()        
@@ -181,10 +175,9 @@ def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
         optimizer.step()
         Esave.append( tosave )
 
-        toshow = v[0].clone().detach().cpu() # initial velocity, components are rgb
-        toshow /= torch.max(torch.abs(toshow))
-        toshow = toshow*0.5+0.5
-    
+        if progress_bar is not None:
+            progress_bar.step(1)
+            progress_bar.update()
 
     return {
         'A': A.clone().detach(), 

@@ -1,13 +1,13 @@
 from demo import Demo
-from pages import STalign_Runner
+from pages import STalignRunner
 
-class STalign_RunnerDemo(Demo):
+class STalignRunnerDemo(Demo):
 
     def __init__(self):
         super().__init__()
         self.load("post_target_processor.pkl")
-        self.demo_widget = STalign_Runner(self.widget_frame, self.slides, self.atlases)
+        self.demo_widget = STalignRunner(self.widget_frame, self.slides, self.atlases)
         self.checkpoint_name = "post_stalign_runner.pkl"
 
-demo = STalign_RunnerDemo()
+demo = STalignRunnerDemo()
 demo.run()

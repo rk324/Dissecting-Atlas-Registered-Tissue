@@ -954,7 +954,7 @@ class TargetProcessor(Page):
     def get_target_index(self):
         return self.curr_target_var.get()-1
 
-class STalign_Runner(Page):
+class STalignRunner(Page):
 
     def __init__(self, master, slides, atlases):
         super().__init__(master, slides, atlases)
@@ -978,7 +978,7 @@ class STalign_Runner(Page):
         self.progress_bar.config(maximum=totalIterations)
 
         time_sec = 3*totalIterations # ~3 sec/iteration
-        time_str = STalign_Runner.seconds_to_string(time_sec)
+        time_str = STalignRunner.seconds_to_string(time_sec)
 
         label_txt = f'Estimated Duration: {time_str}' #TODO
         self.info_label.config(text=label_txt)

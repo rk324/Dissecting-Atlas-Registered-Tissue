@@ -74,7 +74,6 @@ class Page(tk.Frame, ABC):
 class Starter(Page):
 
     def __init__(self, master, slides, atlases):
-
         super().__init__(master, slides, atlases)
         self.header = 'Select samples and atlas'
     

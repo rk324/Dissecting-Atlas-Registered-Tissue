@@ -287,62 +287,6 @@ class SlideProcessor(Page):
         self.slide_viewer = self.TkFigure(self.slides_frame, toolbar=True)
         self.slide_viewer.update()
 
-        # paramater settings
-        self.params_frame = tk.Frame(self)
-        self.params_label = ttk.Label(
-            self.params_frame,
-            text="Adjust parameters for automatic alignment"
-        )
-        self.params_save_btn = ttk.Button(
-            master=self.params_frame,
-            text='Save parameters for slide',
-            command=self.save_params
-        )
-        
-        # basic parameter settings
-        self.basic_frame = tk.Frame(self.params_frame, pady=10)
-        self.basic_label = ttk.Label(
-            master=self.basic_frame,
-            text="Basic"
-        )
-        self.basic_param_label = ttk.Label(
-            self.basic_frame, 
-            text="Speed: "
-        )
-        self.basic_options = [
-            'very slow 1-2 hrs/sample',
-            'slow 15-30 min/sample', 
-            'medium 3-5 min/sample', 
-            'fast 20-30 sec/sample', 
-            'skip automatic alignment' 
-        ]
-        self.basic_combo = ttk.Combobox(
-            master=self.basic_frame,
-            values = self.basic_options,
-            state='readonly'
-        )
-        self.basic_combo.bind('<<ComboboxSelected>>', self.basic_to_advanced)
-        self.basic_combo.set(self.basic_options[2])
-        
-        # advanced parameter settings
-        self.advanced_frame = tk.Frame(self.params_frame)
-        self.advanced_label = ttk.Label(
-            master=self.advanced_frame,
-            text="Advanced"
-        )
-        self.advanced_params_frame = tk.Frame(self.advanced_frame)
-        self.param_vars, self.advanced_entries, self.advanced_param_labels = {}, {}, {}
-        val_cmd = self.register(self.isFloat)
-        for key, value in DEFAULT_STALIGN_PARAMS.items():
-            self.param_vars[key] = tk.StringVar(master=self.advanced_params_frame, value=value)
-            self.advanced_param_labels[key] = ttk.Label(master=self.advanced_params_frame, text=f'{key}:')
-            self.advanced_entries[key] = ttk.Entry(
-                master=self.advanced_params_frame, 
-                textvariable=self.param_vars[key],
-                validate='key',
-                validatecommand=(val_cmd,'%P')
-            )
-
     def show_widgets(self):
         
         self.update() # update buttons, slideviewer, stalign params
@@ -368,26 +312,6 @@ class SlideProcessor(Page):
         # show slide viewer
         self.slides_frame.grid(row=1, column=0, sticky='nsew')
         self.slide_viewer.get_widget().pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-
-        # show prameter settings
-        self.params_frame.grid(row=1, column=1, sticky='nsew')
-        self.params_label.pack()
-        self.params_save_btn.pack(side=tk.BOTTOM, anchor='se')
-
-        self.basic_frame.pack(fill=tk.X)
-        self.basic_label.pack()
-        self.basic_param_label.pack(side=tk.LEFT, anchor='nw')
-        self.basic_combo.pack(side=tk.RIGHT, anchor='ne', expand=True, fill=tk.X)
-
-        self.advanced_frame.pack(fill=tk.X)
-        self.advanced_label.pack()
-        self.advanced_params_frame.pack()
-        self.advanced_params_frame.columnconfigure(1, weight=1)
-        for i,key in enumerate(self.advanced_entries):
-            label = self.advanced_param_labels[key]
-            entry = self.advanced_entries[key]
-            label.grid(row=i, column=0)
-            entry.grid(row=i, column=1, sticky='ew')
 
     def show_slide(self, event=None):
         self.currSlide = self.slides[self.get_index()]
@@ -462,61 +386,6 @@ class SlideProcessor(Page):
         self.currSlide = self.slides[self.get_index()]
         self.clear() # clear and show new slide image
         self.update_buttons() # update buttons
-
-        curr_params = self.currSlide.stalign_params
-        for key,var in self.param_vars.items():
-            var.set(curr_params[key])
-        
-        self.set_basic()
-
-    def save_params(self):
-        curr_slide = self.currSlide
-        for key, value in self.param_vars.items():
-            curr_slide.set_param(key, float(value.get()))
-        self.set_basic()
-        # confirm
-        print("parameters saved!")
-
-    '''
-    Set advanced settings based on basic settings
-    '''
-    def basic_to_advanced(self, event=None):
-        # reset params to defaults
-        for key, var in self.param_vars.items():
-            var.set(DEFAULT_STALIGN_PARAMS[key])
-        
-        # set iterations based on speed setting
-        speed = self.basic_combo.get()
-        if "very slow" in speed:
-            self.param_vars['iterations'].set('2000')
-        elif "slow" in speed:
-            self.param_vars['iterations'].set('500')
-        elif "medium" in speed:
-            self.param_vars['iterations'].set('100')
-        elif "fast" in speed:
-            self.param_vars['iterations'].set('10')
-        else:
-            self.param_vars['iterations'].set('0') #TODO: ensure STalign doesn't explod when given 0 iterations
-
-    '''
-    Set basic settings based on current slide's params
-    '''
-    def set_basic(self):
-        num_iterations = float(self.param_vars['iterations'].get())
-        
-        for key, var in self.param_vars.items():
-            if key == 'iterations': continue
-            if float(var.get()) != DEFAULT_STALIGN_PARAMS[key]:
-                self.basic_combo.set(f"Advanced settings estimated {1/24*num_iterations}")
-                return
-        
-        if num_iterations == 2000: self.basic_combo.set(self.basic_options[0])
-        elif num_iterations == 500: self.basic_combo.set(self.basic_options[1])
-        elif num_iterations == 100: self.basic_combo.set(self.basic_options[2])
-        elif num_iterations == 10: self.basic_combo.set(self.basic_options[3])
-        elif num_iterations == 0: self.basic_combo.set(self.basic_options[4])
-        else:
-            self.basic_combo.set(f"Advanced settings estimated {2.5*num_iterations}") 
 
     def activate_point_mode(self):
         self.clear()
@@ -602,12 +471,7 @@ class SlideProcessor(Page):
         super().done()
 
     def cancel(self):
-        for slide in self.slides:
-            slide.set_param() # reset params
-            for i in range(slide.numCalibrationPoints):
-                slide.remove_calibration_point() # remove calibration points
-            for i in range(slide.numTargets):
-                slide.remove_target() # remove targets
+        self.slides.clear()
         super().cancel()
 
 class TargetProcessor(Page):
@@ -633,6 +497,11 @@ class TargetProcessor(Page):
                 self.update_img_estim(target)
                 target.img_estim.set_pix_dim(atlas.pix_dim[1:]*ALPHA)
                 target.img_estim.set_pix_loc()
+
+        self.translation_scale.config(
+            from_=self.atlases[DSR].pix_loc[0][0],
+            to_=self.atlases[DSR].pix_loc[0][-1]
+        )
 
         super().activate()
 
@@ -715,8 +584,6 @@ class TargetProcessor(Page):
         self.translation = tk.DoubleVar(self.translation_frame, value=0)
         self.translation_scale = ttk.Scale(
             master=self.translation_frame,
-            from_=self.atlases[DSR].pix_loc[0][0],
-            to_=self.atlases[DSR].pix_loc[0][-1],
             orient='horizontal',
             variable=self.translation,
             command=self.show_atlas
@@ -726,12 +593,71 @@ class TargetProcessor(Page):
             text=self.translation.get()
         )
 
+        # paramater settings
+        self.params_frame = tk.Frame(self)
+        self.params_label = ttk.Label(
+            self.params_frame,
+            text="Adjust parameters for automatic alignment"
+        )
+        self.params_save_btn = ttk.Button(
+            master=self.params_frame,
+            text='Save parameters for slice',
+            command=self.save_params
+        )
+        
+        # basic parameter settings
+        self.basic_frame = tk.Frame(self.params_frame, pady=10)
+        self.basic_label = ttk.Label(
+            master=self.basic_frame,
+            text="Basic"
+        )
+        self.basic_param_label = ttk.Label(
+            self.basic_frame, 
+            text="Speed: "
+        )
+        self.basic_options = [
+            'very slow 1-2 hrs/sample',
+            'slow 15-30 min/sample', 
+            'medium 3-5 min/sample', 
+            'fast 20-30 sec/sample', 
+            'skip automatic alignment' 
+        ]
+        self.basic_combo = ttk.Combobox(
+            master=self.basic_frame,
+            values = self.basic_options,
+            state='readonly'
+        )
+        self.basic_combo.bind('<<ComboboxSelected>>', self.basic_to_advanced)
+        self.basic_combo.set(self.basic_options[2])
+        
+        # advanced parameter settings
+        self.advanced_frame = tk.Frame(self.params_frame)
+        self.advanced_label = ttk.Label(
+            master=self.advanced_frame,
+            text="Advanced"
+        )
+        self.advanced_params_frame = tk.Frame(self.advanced_frame)
+        self.param_vars, self.advanced_entries, self.advanced_param_labels = {}, {}, {}
+        val_cmd = self.register(self.isFloat)
+        for key, value in DEFAULT_STALIGN_PARAMS.items():
+            self.param_vars[key] = tk.StringVar(master=self.advanced_params_frame, value=value)
+            self.advanced_param_labels[key] = ttk.Label(master=self.advanced_params_frame, text=f'{key}:')
+            self.advanced_entries[key] = ttk.Entry(
+                master=self.advanced_params_frame, 
+                textvariable=self.param_vars[key],
+                validate='key',
+                validatecommand=(val_cmd,'%P')
+            )
+
     def show_widgets(self):
         
         self.update()
+        
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-        self.menu_frame.pack(fill=tk.X)
-        self.slice_frame.pack(expand=True, fill=tk.BOTH)
+        self.menu_frame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+        self.slice_frame.grid(row=1, column=0, sticky='nsew')
         self.slice_frame.grid_rowconfigure(0, weight=1)
         self.slice_frame.grid_columnconfigure(0, weight=1)
         self.slice_frame.grid_columnconfigure(1, weight=1)
@@ -767,6 +693,26 @@ class TargetProcessor(Page):
         self.translation_scale.pack(fill=tk.X)
         self.translation_label.pack()
 
+        # show prameter settings
+        self.params_frame.grid(row=1, column=1, sticky='nsew')
+        self.params_label.pack()
+        self.params_save_btn.pack(side=tk.BOTTOM, anchor='se')
+
+        self.basic_frame.pack(fill=tk.X)
+        self.basic_label.pack()
+        self.basic_param_label.pack(side=tk.LEFT, anchor='nw')
+        self.basic_combo.pack(side=tk.RIGHT, anchor='ne', expand=True, fill=tk.X)
+
+        self.advanced_frame.pack(fill=tk.X)
+        self.advanced_label.pack()
+        self.advanced_params_frame.pack()
+        self.advanced_params_frame.columnconfigure(1, weight=1)
+        for i,key in enumerate(self.advanced_entries):
+            label = self.advanced_param_labels[key]
+            entry = self.advanced_entries[key]
+            label.grid(row=i, column=0)
+            entry.grid(row=i, column=1, sticky='ew')
+
     def update(self, event=None):
         self.currSlide = self.slides[self.get_slide_index()]
         self.slide_nav_combo.config(
@@ -795,6 +741,12 @@ class TargetProcessor(Page):
         self.show_target()
         self.show_atlas()
         self.update_buttons()
+
+        curr_params = self.currTarget.stalign_params
+        for key,var in self.param_vars.items():
+            var.set(curr_params[key])
+        
+        self.set_basic()
 
     def switch_slides(self, event=None):
         self.curr_target_var.set(1)
@@ -931,6 +883,54 @@ class TargetProcessor(Page):
     def clear(self):
         self.new_points = [[],[]]
         self.update()
+    
+    def save_params(self):
+        for key, value in self.param_vars.items():
+            self.currTarget.set_param(key, float(value.get()))
+        self.set_basic()
+        # confirm
+        print("parameters saved!")
+
+    '''
+    Set advanced settings based on basic settings
+    '''
+    def basic_to_advanced(self, event=None):
+        # reset params to defaults
+        for key, var in self.param_vars.items():
+            var.set(DEFAULT_STALIGN_PARAMS[key])
+        
+        # set iterations based on speed setting
+        speed = self.basic_combo.get()
+        if "very slow" in speed:
+            self.param_vars['iterations'].set('2000')
+        elif "slow" in speed:
+            self.param_vars['iterations'].set('500')
+        elif "medium" in speed:
+            self.param_vars['iterations'].set('100')
+        elif "fast" in speed:
+            self.param_vars['iterations'].set('10')
+        else:
+            self.param_vars['iterations'].set('1') #TODO: ensure STalign doesn't explod when given 0 iterations
+
+    '''
+    Set basic settings based on current targets's params
+    '''
+    def set_basic(self):
+        num_iterations = float(self.param_vars['iterations'].get())
+        
+        for key, var in self.param_vars.items():
+            if key == 'iterations': continue
+            if float(var.get()) != DEFAULT_STALIGN_PARAMS[key]:
+                self.basic_combo.set(f"Advanced settings estimated {1/24*num_iterations}")
+                return
+        
+        if num_iterations == 2000: self.basic_combo.set(self.basic_options[0])
+        elif num_iterations == 500: self.basic_combo.set(self.basic_options[1])
+        elif num_iterations == 100: self.basic_combo.set(self.basic_options[2])
+        elif num_iterations == 10: self.basic_combo.set(self.basic_options[3])
+        elif num_iterations == 0: self.basic_combo.set(self.basic_options[4])
+        else:
+            self.basic_combo.set(f"Advanced settings estimated {2.5*num_iterations}") 
 
     def done(self):
         # estimate pixel dimensions
@@ -942,11 +942,19 @@ class TargetProcessor(Page):
         # clear affine estimation and landmark points
         for slide in self.slides:
             for target in slide.targets:
+                target.set_param() # reset params
                 target.thetas = np.array([0, 0, 0])
                 target.T_estim = np.array([0, 0, 0])
                 for i in range(target.num_landmarks): target.remove_landmarks()
         super().cancel()
     
+    def isFloat(self, str):
+        try:
+            float(str)
+            return True
+        except ValueError:
+            return False
+
     def get_slide_index(self):
         return self.curr_slide_var.get()-1
     
@@ -971,9 +979,9 @@ class STalignRunner(Page):
     def estimate_time(self):
         totalIterations = 0
         for slide in self.slides:
-            numIt = slide.stalign_params['iterations']
-            numTargets = slide.numTargets
-            totalIterations += numIt * numTargets
+            for target in slide.targets:
+                numIt = target.stalign_params['iterations']
+                totalIterations += numIt
         self.progress_bar.config(maximum=totalIterations)
 
         time_sec = 3*totalIterations # ~3 sec/iteration
@@ -1026,6 +1034,94 @@ class STalignRunner(Page):
         self.info_label.pack()
         self.start_btn.pack()
 
+    def process_points(self, target):
+        if target.num_landmarks > 0:
+            points_target_pix = np.array(target.landmarks['target'])
+            points_atlas_pix = np.array(target.landmarks['atlas'])
+            
+            if self.preferred_atlas == 'downscaled':
+                atlas = self.atlases[DSR]
+            else: atlas = self.atlases[FSR]
+            xE = [ALPHA*x for x in atlas.pix_loc]
+            XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
+            L,T = target.get_LT()
+            slice_pts = (L @ XE[...,None])[...,0] + T
+
+            points_atlas = slice_pts[0, points_atlas_pix[:,0], points_atlas_pix[:,1]]
+            points_target = points_target_pix * target.pix_dim + [target.pix_loc[0][0], target.pix_loc[1][0]]
+            points_target = np.insert(points_target, 0, 0, axis=1)
+            return {"target": points_target, "atlas": points_atlas}
+        else:
+            return {"target": None, "atlas": None}  
+
+    def get_transform(self, target, device):
+        # processing points
+        processed_points = self.process_points(target)
+
+        # processing input affine
+        L,T = target.get_LT()
+        L = np.linalg.inv(L)
+        T = -T
+
+        # final target and atlas processing
+        xI = self.atlases[FSR].pix_loc
+        I = self.atlases[FSR].img
+        I = I[None] / np.mean(np.abs(I), keepdims=True)
+        I = np.concatenate((I, (I-np.mean(I))**2))
+        xJ = target.pix_loc
+        J = target.img
+        J = J[None] / np.mean(np.abs(J))
+
+        transform = LDDMM_3D_LBGFS(
+            xI,I,xJ,J,
+            T=T,L=L,
+            device=device,
+            pointsI=processed_points["atlas"], # DO NOT CHANGE
+            pointsJ=processed_points["target"], # DO NOT CHANGE
+            nt=int(target.stalign_params['timesteps']),
+            niter=int(target.stalign_params['iterations']),
+            sigmaM = target.stalign_params['sigmaM'],
+            sigmaP = target.stalign_params['sigmaP'],
+            sigmaR = target.stalign_params['sigmaR'],
+            a = target.stalign_params['resolution'],
+            progress_bar=self.progress_bar
+        )
+        return transform
+
+    def get_segmentation(self, target):
+        transform = target.transform
+        At = transform['A']
+        v = transform['v']
+        xv = transform['xv']
+
+        atlas = self.atlases[FSL]
+        vol = atlas.img
+        dxL = atlas.pix_dim
+        nL = atlas.shape
+        xL = [np.arange(n)*d - (n-1)*d/2 for n,d in zip(nL,dxL)]
+
+        # next chose points to sample on
+        XJ = np.stack(np.meshgrid(
+            np.zeros(1),
+            target.pix_loc[0],
+            target.pix_loc[1],
+            indexing='ij'),-1)
+
+        tform = STalign.build_transform3D(
+            xv,v,At,
+            direction='b',
+            XJ=torch.tensor(XJ,device=At.device)
+        )
+
+        AphiL = STalign.interp3D(
+            xL,
+            torch.tensor(vol[None].astype(np.float64),dtype=torch.float64,device=tform.device),
+            tform.permute(-1,0,1,2),
+            mode='nearest'
+        )[0,0].cpu().int()
+        
+        return AphiL.numpy()
+
     def run(self):
         print('running!')
         self.start_btn.pack_forget()
@@ -1038,63 +1134,25 @@ class STalignRunner(Page):
         
         for sn,slide in enumerate(self.slides):
             for tn,target in enumerate(slide.targets):
-                label_txt = f'Running STalign on Target #{tn+1} of Slide #{sn+1}'
+                label_txt = f'Running STalign on Slice #{tn+1} of Slide #{sn+1}'
                 print(label_txt)
                 self.info_label.config(text=label_txt)
                 self.update()
 
-                # processing points
-                points_target_pix = np.array(target.landmarks['target'])
-                points_atlas_pix = np.array(target.landmarks['atlas'])
-                
-                if self.preferred_atlas == 'downscaled':
-                    atlas = self.atlases[DSR]
-                else: atlas = self.atlases[FSR]
-                xE = [ALPHA*x for x in atlas.pix_loc]
-                XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
-                L,T = target.get_LT()
-                slice_pts = (L @ XE[...,None])[...,0] + T
-
-                points_atlas = slice_pts[0, points_atlas_pix[:,0], points_atlas_pix[:,1]]
-                points_target = points_target_pix * target.pix_dim + [target.pix_loc[0][0], target.pix_loc[1][0]]
-                points_target = np.insert(points_target, 0, 0, axis=1)
-
-                # processing input affine
-                L = np.linalg.inv(L)
-                T = -T
-
-                # final target and atlas processing
-                xI = self.atlases[FSR].pix_loc
-                I = self.atlases[FSR].img
-                I = I[None] / np.mean(np.abs(I), keepdims=True)
-                I = np.concatenate((I, (I-np.mean(I))**2))
-                xJ = target.pix_loc
-                J = target.img
-                J = J[None] / np.mean(np.abs(J))
-
-                target.transform = LDDMM_3D_LBGFS(
-                    xI,I,xJ,J,
-                    T=T,L=L,
-                    device=device,
-                    pointsI=points_atlas, # DO NOT CHANGE
-                    pointsJ=points_target, # DO NOT CHANGE
-                    nt=int(slide.stalign_params['timesteps']),
-                    niter=int(slide.stalign_params['iterations']),
-                    sigmaM = slide.stalign_params['sigmaM'],
-                    sigmaP = slide.stalign_params['sigmaP'],
-                    sigmaR = slide.stalign_params['sigmaR'],
-                    a = slide.stalign_params['resolution'],
-                    progress_bar=self.progress_bar
-                )
+                target.transform = self.get_transform(target, device)
+                target.seg_stalign = self.get_segmentation(target)
 
         self.info_label.config(text="Done!")
         self.progress_bar.pack_forget()
         self.update()
-    
+
     def done(self):
         super().done()
     
     def cancel(self):
+        for slide in self.slides:
+            for target in slide.targets:
+                target.transform = None
         super().cancel()
 
 class VisuAlignRunner(Page):

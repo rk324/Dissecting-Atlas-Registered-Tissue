@@ -149,6 +149,16 @@ class Target(Image):
         # Affine Estimation Properties
         self.thetas = np.array([0, 0, 0]) # z, y, x order
         self.T_estim = np.array([0, 0, 0]) # z, y, x order
+
+        # STalign Parameters
+        self.stalign_params = {
+            'timesteps': 12,
+            'iterations': 100,
+            'sigmaM': 0.5,
+            'sigmaP': 1,
+            'sigmaR': 1e8,
+            'resolution': 250
+        }
         
         # Image Estimations using Affine Properties and Atlas
         self.seg_estim = Image()
@@ -305,6 +315,13 @@ class Target(Image):
                             [       0      ,        0   , 1]
                         ])
 
+    # resets params if no params passed,
+    # if key and val provided, sets given param to given value
+    def set_param(self, key=None, val: float =None):    
+        if key is None and val is None:
+            self.stalign_params = DEFAULT_STALIGN_PARAMS.copy()
+        elif key in self.stalign_params:
+            self.stalign_params[key] = val
 
 class Slide(Image):
 
@@ -316,27 +333,10 @@ class Slide(Image):
 
         self.calibration_points = []
         self.numCalibrationPoints = 0
-        
-        self.stalign_params = {
-            'timesteps': 12,
-            'iterations': 100,
-            'sigmaM': 0.5,
-            'sigmaP': 1,
-            'sigmaR': 1e8,
-            'resolution': 250
-        }
 
     def load_img(self, filename):
         self.img = ski.io.imread(filename)
         self.shape = self.img.shape
-    
-    # resets params if no params passed,
-    # if key and val provided, sets given param to given value
-    def set_param(self, key=None, val: float =None):    
-        if key is None and val is None:
-            self.stalign_params = DEFAULT_STALIGN_PARAMS.copy()
-        elif key in self.stalign_params:
-            self.stalign_params[key] = val
         
     def estimate_pix_dim(self):
         target_pix_dims = [t.estimate_pix_dim() for t in self.targets]

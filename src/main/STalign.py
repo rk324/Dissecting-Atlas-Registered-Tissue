@@ -1850,76 +1850,78 @@ def calculate_tre(pointsI, pointsJ):
 
 
 #Download and store ontology
-def download_aba_ontology(url,file_name): 
-	''' Create 3D altas ontology
+def download_aba_ontology(url,file_name):
+    ''' 
+    Create 3D altas ontology
 	    
-	    Parameters
-	    ----------
-	    url : Link to url contain atlas ontology
-	    file_name : File name to save atlas ontology
-	    
-	    Returns
-	    -------
-	    ontology_name : File name to store ontologies
-	    namesdict : Dictionary of all brain rgeion names
-	'''
-	    
-   
-	r = requests.get(url)
-	print(r)
-	with open(file_name,'w') as f:
-        	f.write(r.text)
-	ontology_name = file_name
+    Parameters
+    ----------
+    url : Link to url contain atlas ontology
+    file_name : File name to save atlas ontology
+    
+    Returns
+    -------
+    ontology_name : File name to store ontologies
+    namesdict : Dictionary of all brain rgeion names
+	''' 
+    r = requests.get(url)
+    print(r)
 
-	O = pd.read_csv(ontology_name)
+    with open(file_name,'w') as f:
+        f.write(r.text)
+    ontology_name = file_name
 
+    O = pd.read_csv(ontology_name)
+    
 	# store the ontology in a dictionary
-	namesdict = defaultdict(lambda: 'unk')
-	namesdict[0] = 'bg'
+    namesdict = defaultdict(lambda: 'unk')
+    namesdict[0] = 'bg'
 
 	# we need to add the structure names from the structure_id
-	for i,n in zip(O['id'],O['acronym']):
-        	namesdict[i] = n
-	return ontology_name,namesdict
+    for i,n in zip(O['id'],O['acronym']):
+        namesdict[i] = n
+	
+    return ontology_name,namesdict
 
 def download_aba_image_labels(imageurl, labelurl, imagefile, labelfile):
-	''' Create 3D altas image and region annotations
+    ''' 
+    Create 3D altas image and region annotations
 		    
-		    Parameters
-		    ----------
-		    imageurl : array
-		    		Link containing atlas cell stained image.
-		    labelurl : array
-		    		Link containing atlas altas images for each voxel in imageurl.
-		    imagefile : array
-		    		File location to save imageurl information.
-		    labelfile : array
-		    		File location to save labelurl information.
-		    
-		    Returns
-		    -------
-		    imagefile : array
-		    		File location to save imageurl information.
-		    labelfile : array
-		    		File location to save labelurl information.	    
-		    
+    Parameters
+    ----------
+    imageurl : array
+            Link containing atlas cell stained image.
+    labelurl : array
+            Link containing atlas altas images for each voxel in imageurl.
+    imagefile : array
+            File location to save imageurl information.
+    labelfile : array
+            File location to save labelurl information.
+    
+    Returns
+    -------
+    imagefile : array
+            File location to save imageurl information.
+    labelfile : array
+            File location to save labelurl information.	    
 	'''
-	url = imageurl
-	r = requests.get(url, stream=True)
-	with open(imagefile, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=1024): 
-                if chunk: # filter out keep-alive new chunks
-                    f.write(chunk)
-	imagefile = imagefile
-
-	url = labelurl#'http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/ccf_2017/annotation_50.nrrd'
-	r = requests.get(url, stream=True)
-	with open(labelfile, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=1024): 
-                if chunk: # filter out keep-alive new chunks
-                    f.write(chunk)
-	labelfile = labelfile
-	return imagefile, labelfile
+    url = imageurl
+    
+    r = requests.get(url, stream=True)
+    with open(imagefile, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=1024): 
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)
+    imagefile = imagefile
+    
+    url = labelurl#'http://download.alleninstitute.org/informatics-archive/current-release/mouse_ccf/annotation/ccf_2017/annotation_50.nrrd'
+    r = requests.get(url, stream=True)
+    with open(labelfile, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=1024): 
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)
+    labelfile = labelfile
+    return imagefile, labelfile
 
 def analyze3Dalign(labelfile, xv,v,mat, xJ, dx, scale_x, scale_y, x, y, X_, Y_, namesdict, device='cpu'):
 	''' Create dataframe with region annotations and 3D coordinates of target brain slice
@@ -2033,25 +2035,25 @@ def plot_brain_regions(df):
             ax.legend()
 
 def plot_subset_brain_regions(df, brain_regions):
-	''' Plot subset of brain regions in target brain slice with different color.
+    ''' 
+    Plot subset of brain regions in target brain slice with different color.
 		    
-		    Parameters
-		    ----------
-		    df : DataFrame
-		    	Dataframe containing each cell in original target brain slice, region annotations and 3D coordinates in terms of the altas.
-		    brain_regions : array
-		    		Subset of brain regions of interest (i.e. ['CA1', 'CP', 'DG-sg'])
-		    
-		    Returns
-		    -------
-		    None
+    Parameters
+    ----------
+    df : DataFrame
+        Dataframe containing each cell in original target brain slice, region annotations and 3D coordinates in terms of the altas.
+    brain_regions : array
+            Subset of brain regions of interest (i.e. ['CA1', 'CP', 'DG-sg'])
+    
+    Returns
+    -------
+    None
 		    
 	'''
-    	#plot brain regions
-	brain_regions = brain_regions
-	fig,ax = plt.subplots()
-	ax.scatter(df['x'], df['y'],color = 'grey',s= 0.1)   
-	for i in range(len(brain_regions)):
-	    region_df = df[df['acronym']==brain_regions[i]]
-	    ax.scatter(region_df['x'], region_df['y'], label = brain_regions[i],s= 0.1)   
-	    ax.legend()
+    # plot brain regions
+    fig,ax = plt.subplots()
+    ax.scatter(df['x'], df['y'],color = 'grey',s= 0.1)
+    for i in range(len(brain_regions)):
+        region_df = df[df['acronym']==brain_regions[i]]
+        ax.scatter(region_df['x'], region_df['y'], label = brain_regions[i],s= 0.1)
+        ax.legend()

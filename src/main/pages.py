@@ -836,6 +836,7 @@ class TargetProcessor(Page):
         self.slice_viewer.update()
 
     def update_buttons(self):
+        #TODO: make save parameters button only active if changes to save
 
         canRemove = self.currTarget.num_landmarks > 0
         canAdd = len(self.new_points[0]) == 2 and len(self.new_points[1]) == 2
@@ -928,7 +929,7 @@ class TargetProcessor(Page):
         elif num_iterations == 500: self.basic_combo.set(self.basic_options[1])
         elif num_iterations == 100: self.basic_combo.set(self.basic_options[2])
         elif num_iterations == 10: self.basic_combo.set(self.basic_options[3])
-        elif num_iterations == 0: self.basic_combo.set(self.basic_options[4])
+        elif num_iterations == 1: self.basic_combo.set(self.basic_options[4])
         else:
             self.basic_combo.set(f"Advanced settings estimated {2.5*num_iterations}") 
 
@@ -1029,6 +1030,8 @@ class STalignRunner(Page):
             orient='horizontal',
             value=0
         )
+
+        self.results_frame = tk.Frame(self)
 
     def show_widgets(self):
         self.info_label.pack()
@@ -1144,7 +1147,22 @@ class STalignRunner(Page):
 
         self.info_label.config(text="Done!")
         self.progress_bar.pack_forget()
+        self.show_results()
         self.update()
+
+    def show_results(self):
+        figures = []
+        for slide in self.slides:
+            newFigure = self.TkFigure(self.results_frame, num_cols = slide.numTargets)
+            ax = newFigure.axes
+            for tn, target in enumerate(slide.targets):
+                ax[tn].imshow(target.get_img())
+        
+            newFigure.update()
+            newFigure.get_widget().pack()
+            figures.append(newFigure)
+        
+        self.results_frame.pack()
 
     def done(self):
         super().done()

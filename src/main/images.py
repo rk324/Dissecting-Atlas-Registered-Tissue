@@ -161,7 +161,6 @@ class Target(Image):
         }
         
         # Image Estimations using Affine Properties and Atlas
-        self.seg_estim = Image()
         self.img_estim = Image()
 
         # Landmark Points
@@ -241,19 +240,20 @@ class Target(Image):
         scale = np.sqrt(area_target / area_atlas)
         return np.divide(self.img_estim.pix_dim, scale)
 
-    def get_img(self, estimate=True, color=(255,255,255), mode='thick'):
+    def get_img(self, seg="stalign", color=(255,255,255), mode='thick'):
         """
         Target implementation of get_img(), used exclusively to get target
-        image with all region boundaries marked. Client can request the
-        estimated (before stalign and visualign) marked image or the
-        aligned (after stalign and visualign) marked image using the
-        **estimate** parameter.
+        image with all region boundaries marked. The seg parameter allows 
+        the client to choose whether to use the segmentation after stalign
+        or after visualign
         """
-        if estimate:
-            image = self.img_estim.get_img()
-            segmentation = self.seg_estim.get_img()
+        if seg not in ['stalign','visualign']:
+            raise Exception("must set mode to one of 'stalign' or 'visualign'")
+        
+        image = self.img
+        if seg == 'stalign':
+            segmentation = self.seg_stalign
         else:
-            image = self.img_downscaled
             segmentation = self.seg_visualign
         
         if image is None or segmentation is None: return None

@@ -1152,17 +1152,20 @@ class STalignRunner(Page):
 
     def show_results(self):
         figures = []
-        for slide in self.slides:
-            newFigure = self.TkFigure(self.results_frame, num_cols = slide.numTargets)
+        for sn,slide in enumerate(self.slides):
+            newFigure = self.TkFigure(self.results_frame, num_cols=slide.numTargets)
             ax = newFigure.axes
             for tn, target in enumerate(slide.targets):
                 ax[tn].imshow(target.get_img())
         
             newFigure.update()
-            newFigure.get_widget().pack()
+            newFigure.get_widget().grid(
+                sticky='nsew',
+                row=sn,
+                column=0,
+                columnspan=slide.numTargets
+            )
             figures.append(newFigure)
-        
-        self.results_frame.pack()
 
     def done(self):
         super().done()

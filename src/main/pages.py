@@ -550,7 +550,8 @@ class TargetProcessor(Page):
             state='disabled'
         )
 
-        self.slice_viewer = self.TkFigure(self.slice_frame, num_cols=2, toolbar=False)
+        self.figure_frame = tk.Frame(self.slice_frame)
+        self.slice_viewer = self.TkFigure(self.figure_frame, num_cols=2, toolbar=True)
         self.click_event = self.slice_viewer.canvas.mpl_connect('button_press_event', self.on_click)
 
         self.rotation_frame = tk.Frame(self.slice_frame)
@@ -674,12 +675,13 @@ class TargetProcessor(Page):
         self.commit_btn.pack(side=tk.LEFT)
         self.clear_btn.pack(side=tk.LEFT)
 
-        self.slice_viewer.get_widget().grid(
+        self.figure_frame.grid(
             row=0, 
             column=0, 
             columnspan=2, 
             sticky='nsew'
         )
+        self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
         
         self.rotation_frame.grid(row=0, column=2, sticky='nsew')
         self.rotation_frame.grid_rowconfigure(0, weight=1)
@@ -1152,21 +1154,30 @@ class STalignRunner(Page):
         self.update()
 
     def show_results(self):
-        figures = []
+        numRows = len(self.slides)
+        numCols = 0
         for sn,slide in enumerate(self.slides):
-            newFigure = self.TkFigure(self.results_frame, num_cols=slide.numTargets)
+            wrapper = tk.Frame(self.results_frame)
+            newFigure = self.TkFigure(wrapper, num_cols=slide.numTargets)
             ax = newFigure.axes
             for tn, target in enumerate(slide.targets):
                 ax[tn].imshow(target.get_img())
+            
+            if slide.numTargets > numCols: 
+                numCols = slide.numTargets 
         
             newFigure.update()
-            newFigure.get_widget().grid(
+            wrapper.grid(
                 sticky='nsew',
                 row=sn,
                 column=0,
                 columnspan=slide.numTargets
             )
-            figures.append(newFigure)
+            newFigure.get_widget().pack()
+        
+        self.results_frame.pack(expand=True, fill=tk.BOTH)
+        self.results_frame.row_configure(list(range(numRows)), weight=1, uniform='rows')
+        self.results_frame.column_configure(list(range(numCols)), weight=1, uniform='cols')
 
     def done(self):
         super().done()

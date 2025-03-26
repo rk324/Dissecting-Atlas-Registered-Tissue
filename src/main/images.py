@@ -241,7 +241,7 @@ class Target(Image):
         scale = np.sqrt(area_target / area_atlas)
         return np.divide(self.img_estim.pix_dim, scale)
 
-    def get_img(self, seg="stalign", color=(255,255,255), mode='thick'):
+    def get_img(self, seg="stalign", color=(255,0,0), mode='thick'):
         """
         Target implementation of get_img(), used exclusively to get target
         image with all region boundaries marked. The seg parameter allows 
@@ -251,7 +251,7 @@ class Target(Image):
         if seg not in ['stalign','visualign']:
             raise Exception("must set mode to one of 'stalign' or 'visualign'")
         
-        image = self.img
+        image = self.img_downscaled
         if seg == 'stalign':
             segmentation = self.seg_stalign
         else:

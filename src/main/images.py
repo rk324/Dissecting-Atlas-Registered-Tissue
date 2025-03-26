@@ -52,7 +52,7 @@ class Atlas(Image):
     def __init__(self):
         super().__init__()
 
-    def load_img(self, path: str=None, img=None, pix_dim=None, ds_factor=1):
+    def load_img(self, path: str=None, img=None, pix_dim=None, ds_factor=1, normalize=True):
         """
         Atlas implementation of load_img() reads in image data and pixel 
         dimension from provided filename or as parameters. Sets **img**, 
@@ -76,8 +76,9 @@ class Atlas(Image):
         self.img = ski.transform.downscale_local_mean(self.img, ds_factor)
         self.pix_dim = ds_factor*self.pix_dim
         self.shape = self.img.shape
-        self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
-        self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img)) # normalize
+        if normalize:
+            self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
+            self.img = (self.img - np.min(self.img)) / (np.max(self.img) - np.min(self.img)) # normalize
         self.set_pix_loc()
 
     def load_nii(path: str):

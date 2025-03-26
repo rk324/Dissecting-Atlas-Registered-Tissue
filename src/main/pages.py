@@ -153,7 +153,7 @@ class Starter(Page):
                     names_dict_filename = curr_path
 
         self.atlases[FSR].load_img(path=ref_atlas_filename)
-        self.atlases[FSL].load_img(path=lab_atlas_filename)
+        self.atlases[FSL].load_img(path=lab_atlas_filename, normalize=False)
         # load images for downscaled versiosn
         downscale_factor = 4
         self.atlases[DSR].load_img(
@@ -164,7 +164,8 @@ class Starter(Page):
         self.atlases[DSL].load_img(
             img=self.atlases[FSL].img, 
             pix_dim=self.atlases[FSL].pix_dim, 
-            ds_factor=downscale_factor
+            ds_factor=downscale_factor,
+            normalize=False
         )
         self.atlases['names'] = pd.read_csv(names_dict_filename)
 

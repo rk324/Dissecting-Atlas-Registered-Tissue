@@ -486,12 +486,6 @@ class TargetProcessor(Page):
         self.point_size = 4
 
     def activate(self):
-        if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
-            self.preferred_atlas = "downscaled"
-            atlas = self.atlases[DSR]
-        else:
-            self.preferred_atlas = "full size"
-            atlas = self.atlases[FSR]
 
         for slide in self.slides:
             for target in slide.targets:
@@ -787,11 +781,8 @@ class TargetProcessor(Page):
 
     def update_img_estim(self, target):
 
-        if self.preferred_atlas == "downscaled":
-            atlas = self.atlases[DSR]
-        else:
-            atlas = self.atlases[FSR]
-
+        atlas = self.atlases[DSR]
+        
         xE = [ALPHA*x for x in atlas.pix_loc]
         XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
         L,T = target.get_LT()
@@ -973,11 +964,6 @@ class STalignRunner(Page):
     
     def activate(self):
         self.estimate_time()
-        if self.atlases[FSR].shape[0]*self.atlases[FSR].shape[1] > 1e9:
-            self.preferred_atlas = "downscaled"
-        else:
-            self.preferred_atlas = "full size"
-
         super().activate()
 
     def estimate_time(self):
@@ -1050,9 +1036,7 @@ class STalignRunner(Page):
             points_target_pix = np.array(target.landmarks['target'])
             points_atlas_pix = np.array(target.landmarks['atlas'])
             
-            if self.preferred_atlas == 'downscaled':
-                atlas = self.atlases[DSR]
-            else: atlas = self.atlases[FSR]
+            atlas = self.atlases[DSR]
             xE = [ALPHA*x for x in atlas.pix_loc]
             XE = np.stack(np.meshgrid(np.zeros(1),xE[1],xE[2],indexing='ij'),-1)
             L,T = target.get_LT()

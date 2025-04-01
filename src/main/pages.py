@@ -1034,12 +1034,17 @@ class STalignRunner(Page):
             value=0
         )
 
+        self.show_results_btn = ttk.Button(
+            master=self,
+            command=self.show_results,
+            text="Show Results"
+        )
         self.results_frame = tk.Frame(self)
 
     def show_widgets(self):
         self.info_label.pack()
         self.start_btn.pack()
-
+        
     def process_points(self, target):
         if target.num_landmarks > 0:
             points_target_pix = np.array(target.landmarks['target'])
@@ -1150,34 +1155,34 @@ class STalignRunner(Page):
 
         self.info_label.config(text="Done!")
         self.progress_bar.pack_forget()
-        self.show_results()
+        self.show_results_btn.pack()
         self.update()
 
     def show_results(self):
+        # TODO: reconfigure results viewer to show one slice at a time with the dropdowns to navigate
         numRows = len(self.slides)
         numCols = 0
         for sn,slide in enumerate(self.slides):
-            wrapper = tk.Frame(self.results_frame)
-            newFigure = self.TkFigure(wrapper, num_cols=slide.numTargets)
-            ax = newFigure.axes
-            for tn, target in enumerate(slide.targets):
-                ax[tn].imshow(target.get_img())
-            
             if slide.numTargets > numCols: 
                 numCols = slide.numTargets 
-        
-            newFigure.update()
-            wrapper.grid(
-                sticky='nsew',
-                row=sn,
-                column=0,
-                columnspan=slide.numTargets
-            )
-            newFigure.get_widget().pack()
+
+            for tn, target in enumerate(slide.targets):
+                wrapper = tk.Frame(self.results_frame)
+                fig = self.TkFigure(wrapper)
+                ax = fig.axes
+                ax[0].imshow(target.get_img())
+            
+                fig.update()
+                wrapper.grid(
+                    sticky='nsew',
+                    row=sn,
+                    column=tn
+                )
+                fig.get_widget().pack(expand=True,fill=tk.BOTH)
         
         self.results_frame.pack(expand=True, fill=tk.BOTH)
-        self.results_frame.row_configure(list(range(numRows)), weight=1, uniform='rows')
-        self.results_frame.column_configure(list(range(numCols)), weight=1, uniform='cols')
+        self.results_frame.rowconfigure(list(range(numRows)), weight=1, uniform='rows')
+        self.results_frame.columnconfigure(list(range(numCols)), weight=1, uniform='cols')
 
     def done(self):
         super().done()

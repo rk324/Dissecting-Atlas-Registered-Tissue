@@ -1199,6 +1199,10 @@ class VisuAlignRunner(Page):
         super().__init__(master, slides, atlases)
         self.header = "Running VisuAlign."
 
+    def activate(self):
+        #TODO: process objects created 3d segmentation volume, export as an atlas, create json file, and use terminal to open visualign
+        pass
+
     def create_widgets(self):
         pass
 

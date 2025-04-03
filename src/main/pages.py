@@ -154,8 +154,10 @@ class Starter(Page):
 
         self.atlases[FSR].load_img(path=ref_atlas_filename)
         self.atlases[FSL].load_img(path=lab_atlas_filename, normalize=False)
-        # load images for downscaled versiosn
-        downscale_factor = 4
+        # load images for downscaled version
+        pix_dim_full = self.atlases[FSR].pix_dim
+
+        downscale_factor = tuple([max(1, 50/dim) for dim in pix_dim_full])
         self.atlases[DSR].load_img(
             img=self.atlases[FSR].img, 
             pix_dim=self.atlases[FSR].pix_dim, 
@@ -486,7 +488,7 @@ class TargetProcessor(Page):
         self.point_size = 4
 
     def activate(self):
-
+        atlas = self.atlases[DSR]
         for slide in self.slides:
             for target in slide.targets:
                 self.update_img_estim(target)
@@ -1185,13 +1187,54 @@ class VisuAlignRunner(Page):
 
     def activate(self):
         #TODO: process objects created 3d segmentation volume, export as an atlas, create json file, and use terminal to open visualign
-        pass
+        # stack seg_stalign of all targets and pad as necessary to create 3 dimensions np.array
+        raw_stack = [target.seg_stalign for slide in self.slides for target in slide.targets]
+        shapes = np.array([seg.shape for seg in raw_stack])
+        max_dims = [shapes[:,0].max(), shapes[:,1].max()]
+        paddings = max_dims-shapes
+        stack = np.array([np.pad(r, ((p[0],0),(0,p[1]))) for p,r in zip(paddings, raw_stack)])
+        nifti = nib.Nifti1Image(stack, np.eye(4)) # create nifti obj
+        nib.save(nifti, os.path.join("VisuAlign-v0_9//custom_atlas.cutlas//labels.nii.gz"))
+
+        visualign_export_folder = 'EXPORT_VISUALIGN_HERE'
+        if not os.path.exists(visualign_export_folder):
+            os.mkdir(visualign_export_folder)
+
+        with open('CLICK_ME.json','w') as f:
+            f.write('{')
+            f.write('"name":"", ')
+            f.write('"target":"custom_atlas.cutlas", ')
+            f.write('"aligner": "prerelease_1.0.0", ')
+            f.write('"slices": [')
+            i=0
+            for sn,slide in enumerate(self.slides):
+                for ti,t in enumerate(slide.targets): 
+                    ski.io.imsave(f'DELETE_ME_{sn}_{ti}.jpg',t.original)
+                    f.write('{')
+                    h = raw_stack[i].shape[0]
+                    w = raw_stack[i].shape[1]
+                    f.write(f'"filename": "DELETE_ME_{sn}_{ti}.jpg", ')
+                    f.write(f'"anchoring": [0, {len(raw_stack)-i-1}, {h}, {w}, 0, 0, 0, 0, -{h}], ')
+                    f.write(f'"height": {h}, "width": {w}, ')
+                    f.write('"nr": 1, "markers": []}')
+                    if i < len(raw_stack)-1: f.write(',')
+                    i += 1
+            f.write(']}')
+        
+        super().activate()
 
     def create_widgets(self):
-        pass
+        self.run_btn = ttk.Button(
+            master=self,
+            text="Open VisuAlign",
+            command=self.run
+        )
 
     def show_widgets(self):
-        pass
+        self.run_btn.pack()
+
+    def run(self):
+        print("running visualign")
         
     def done(self):
         super().done()

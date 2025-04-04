@@ -10,6 +10,8 @@ import shapely
 import pandas as pd
 import numpy as np
 from sklearn.cluster import dbscan
+import shutil
+import glob
 
 from images import *
 from constants import *
@@ -169,7 +171,8 @@ class Starter(Page):
             ds_factor=downscale_factor,
             normalize=False
         )
-        self.atlases['names'] = pd.read_csv(names_dict_filename)
+        self.atlases['names'] = pd.read_csv(names_dict_filename, index_col='name')
+        self.atlases['names'].loc['empty','id'] = 0
 
     def load_slides(self, path):
         for f in os.listdir(path):
@@ -1186,13 +1189,13 @@ class VisuAlignRunner(Page):
         self.header = "Running VisuAlign."
 
     def activate(self):
-        #TODO: process objects created 3d segmentation volume, export as an atlas, create json file, and use terminal to open visualign
         # stack seg_stalign of all targets and pad as necessary to create 3 dimensions np.array
         raw_stack = [target.seg_stalign for slide in self.slides for target in slide.targets]
         shapes = np.array([seg.shape for seg in raw_stack])
         max_dims = [shapes[:,0].max(), shapes[:,1].max()]
         paddings = max_dims-shapes
         stack = np.array([np.pad(r, ((p[0],0),(0,p[1]))) for p,r in zip(paddings, raw_stack)])
+        stack = np.transpose(np.flip(stack, axis=(0,1)), (-1,0,1))
         nifti = nib.Nifti1Image(stack, np.eye(4)) # create nifti obj
         nib.save(nifti, os.path.join("VisuAlign-v0_9//custom_atlas.cutlas//labels.nii.gz"))
 
@@ -1209,7 +1212,7 @@ class VisuAlignRunner(Page):
             i=0
             for sn,slide in enumerate(self.slides):
                 for ti,t in enumerate(slide.targets): 
-                    ski.io.imsave(f'DELETE_ME_{sn}_{ti}.jpg',t.original)
+                    ski.io.imsave(f'DELETE_ME_{sn}_{ti}.jpg',t.img_original)
                     f.write('{')
                     h = raw_stack[i].shape[0]
                     w = raw_stack[i].shape[1]
@@ -1223,6 +1226,13 @@ class VisuAlignRunner(Page):
         
         super().activate()
 
+    def deactivate(self):
+        os.remove('CLICK_ME.json')
+        os.remove('VisuAlign-v0_9/custom_atlas.cutlas/labels.nii.gz')
+        shutil.rmtree("EXPORT_VISUALIGN_HERE")
+        for f in glob.glob('*DELETE_ME*'): os.remove(f)
+        super().deactivate()
+
     def create_widgets(self):
         self.run_btn = ttk.Button(
             master=self,
@@ -1230,13 +1240,39 @@ class VisuAlignRunner(Page):
             command=self.run
         )
 
+        self.instructions_label = ttk.Label(
+            master=self,
+            text="Instructions:\n1. Click \"Open VisuAlign\" button\n2. Click File > Open > \"CLICK_ME.json\"\n3. Adjust alignment with VisuAlign until satisfied\n4. Click File > Export > \"EXPORT_VISUALIGN_HERE\"\n5. Close VisuAlign after notification of successful saving of segmentation"
+        )
+
     def show_widgets(self):
+        self.instructions_label.pack()
         self.run_btn.pack()
 
     def run(self):
         print("running visualign")
+        cmd = r"cd VisuAlign-v0_9; bin/java.exe --module qnonlin/visualign.QNonLin"
+        os.system(cmd)
         
     def done(self):
+        regions_nutil = pd.read_json(r'resources/Rainbow 2017.json')
+        for sn,slide in enumerate(self.slides):
+            for ti,t in enumerate(slide.targets):
+                visualign_nl_flat_filename = f'EXPORT_VISUALIGN_HERE//DELETE_ME_{sn}_{ti}_nl.flat'
+                with open(visualign_nl_flat_filename, 'rb') as fp:
+                    buffer = fp.read()
+                shape = np.frombuffer(buffer, dtype=np.dtype('>i4'), offset=1, count=2) 
+                data = np.frombuffer(buffer, dtype=np.dtype('>i2'), offset=9)
+                data = data.reshape(shape[::-1])
+                data = data[:-1,:-1]
+                
+                seg_visualign_names = regions_nutil['name'].to_numpy()[data] 
+                seg_visualign = seg_visualign_names.copy()
+                for region_name in np.unique(seg_visualign_names):
+                    mask = seg_visualign_names==region_name
+                    seg_visualign[mask] = self.atlases['names'].id[region_name]
+                    
+                t.seg_visualign = seg_visualign.astype(int)
         super().done()
     
     def cancel(self):

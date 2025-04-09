@@ -1278,6 +1278,117 @@ class VisuAlignRunner(Page):
     def cancel(self):
         super().cancel()
 
+class RegionPicker(Page):
+
+    def __init__(self, master, slides, atlases):
+        super().__init__(master, slides, atlases)
+        self.header = "Selecting ROIs"
+        self.currSlide = None
+        self.currTarget = None
+    
+    def activate(self):
+        self.slide_nav_combo.config(
+            values=[i+1 for i in range(len(self.slides))]
+        )
+        super().activate()
+
+        self.make_tree()
+    
+    def make_tree(self):
+        regions = self.atlases['names']
+        for name,row in regions.iterrows():
+            id = row['id']
+            parent = row['parent_structure_id']
+            if pd.isna(parent): parent = ""
+            self.region_tree.insert(
+                parent=parent,
+                index="end",
+                iid=id,
+                text=name
+            )
+
+    def create_widgets(self):
+        self.menu_frame = tk.Frame(self)
+        self.slice_frame = tk.Frame(self)
+        self.region_frame = tk.Frame(self)
+
+        self.slide_nav_label = ttk.Label(self.menu_frame, text="Slide: ")
+        self.curr_slide_var = tk.IntVar(master=self.menu_frame, value='1')
+        self.slide_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[],
+            state='readonly',
+            textvariable=self.curr_slide_var,
+        )
+        self.slide_nav_combo.bind('<<ComboboxSelected>>', self.switch_slides)
+
+        self.target_nav_label = ttk.Label(self.menu_frame, text="Target: ")
+        self.curr_target_var = tk.IntVar(master=self.menu_frame, value='1')
+        self.target_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[],
+            state='readonly',
+            textvariable=self.curr_target_var,
+        )
+        self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
+
+        self.slice_viewer = self.TkFigure(self.slice_frame, toolbar=True)
+
+        self.region_tree = ttk.Treeview(
+            master=self.region_frame
+        )
+
+    def show_widgets(self):
+        self.update()
+        
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=5)
+        self.grid_columnconfigure(1, weight=1)
+
+        self.menu_frame.grid(row=0, column=0, sticky='nsew')
+        self.slice_frame.grid(row=1, column=0, sticky='nsew')
+        self.region_frame.grid(row=0, rowspan=2, column=1, sticky='nsew')
+
+        self.slide_nav_label.pack(side=tk.LEFT)
+        self.slide_nav_combo.pack(side=tk.LEFT)
+        
+        self.target_nav_combo.pack(side=tk.RIGHT)
+        self.target_nav_label.pack(side=tk.RIGHT)
+
+        self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
+
+        self.region_tree.pack(expand=True, fill=tk.BOTH)
+
+    def switch_slides(self, event=None):
+        self.curr_target_var.set(1)
+        self.update()
+
+    def update(self, event=None):
+        self.currSlide = self.slides[self.get_slide_index()]
+        self.currTarget = self.currSlide.targets[self.get_target_index()]
+        self.target_nav_combo.config(
+            values=[i+1 for i in range(self.currSlide.numTargets)]
+        )
+
+        self.show_seg()
+
+    def show_seg(self):
+        self.slice_viewer.axes[0].cla()
+        self.slice_viewer.axes[0].imshow(self.currTarget.get_img(seg="visualign"))
+        # TODO: show regions selected
+        self.slice_viewer.update()
+
+    def get_slide_index(self):
+        return self.curr_slide_var.get()-1
+    
+    def get_target_index(self):
+        return self.curr_target_var.get()-1
+
+    def cancel(self):
+        super().cancel()
+
+    def done(self):
+        super().done()
 
 class Boundary_Generator(Page):
 

@@ -1285,15 +1285,15 @@ class RegionPicker(Page):
         self.header = "Selecting ROIs"
         self.currSlide = None
         self.currTarget = None
+        self.rois = []
     
     def activate(self):
         self.slide_nav_combo.config(
             values=[i+1 for i in range(len(self.slides))]
         )
+        self.make_tree()
         super().activate()
 
-        self.make_tree()
-    
     def make_tree(self):
         regions = self.atlases['names']
         for name,row in regions.iterrows():
@@ -1333,6 +1333,7 @@ class RegionPicker(Page):
         self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
 
         self.slice_viewer = self.TkFigure(self.slice_frame, toolbar=True)
+        self.move_bind = self.slice_viewer.canvas.mpl_connect('motion_notify_event', self.on_move)
 
         self.region_tree = ttk.Treeview(
             master=self.region_frame
@@ -1377,6 +1378,16 @@ class RegionPicker(Page):
         self.slice_viewer.axes[0].imshow(self.currTarget.get_img(seg="visualign"))
         # TODO: show regions selected
         self.slice_viewer.update()
+    
+    def on_move(self, event):
+        if event.inaxes:
+            x,y = int(event.xdata), int(event.ydata)
+            id = self.currTarget.seg_visualign[y,x]
+            region_df = self.atlases['names']
+            name = region_df.loc[region_df.id==id].index[0]
+            print(name)
+            self.slice_viewer.axes[0].set_title(name)
+            self.slice_viewer.update()
 
     def get_slide_index(self):
         return self.curr_slide_var.get()-1

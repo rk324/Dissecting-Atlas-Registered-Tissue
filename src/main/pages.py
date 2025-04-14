@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import ttkwidgets
 import matplotlib as mpl
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
@@ -1286,12 +1287,14 @@ class RegionPicker(Page):
         self.currSlide = None
         self.currTarget = None
         self.rois = []
+        self.region_colors = ['red','yellow','green','orange','brown','white','black','grey','cyan','pink','tan']
     
     def activate(self):
         self.slide_nav_combo.config(
             values=[i+1 for i in range(len(self.slides))]
         )
         self.make_tree()
+
         super().activate()
 
     def make_tree(self):
@@ -1306,6 +1309,7 @@ class RegionPicker(Page):
                 iid=id,
                 text=name
             )
+        self.region_tree.expand_all()
 
     def create_widgets(self):
         self.menu_frame = tk.Frame(self)
@@ -1333,11 +1337,15 @@ class RegionPicker(Page):
         self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
 
         self.slice_viewer = self.TkFigure(self.slice_frame, toolbar=True)
-        self.move_bind = self.slice_viewer.canvas.mpl_connect('motion_notify_event', self.on_move)
+        self.slice_viewer.canvas.mpl_connect('motion_notify_event', self.on_move)
+        self.slice_viewer.canvas.mpl_connect('button_press_event', self.on_click)
 
-        self.region_tree = ttk.Treeview(
+        self.region_tree = self.ModifiedCheckboxTreeView(
             master=self.region_frame
         )
+
+        self.region_tree.bind('<Motion>',self.check_update)
+        self.region_tree.bind('<ButtonRelease-1>',self.check_update)
 
     def show_widgets(self):
         self.update()
@@ -1359,10 +1367,17 @@ class RegionPicker(Page):
         self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
 
         self.region_tree.pack(expand=True, fill=tk.BOTH)
+        #TODO: figure out how to make entire tree horizontal visible
 
     def switch_slides(self, event=None):
         self.curr_target_var.set(1)
         self.update()
+
+    def check_update(self, event=None):
+        new_rois = [int(float(s)) for s in self.region_tree.get_checked()]
+        if self.rois != new_rois:
+            self.rois = new_rois
+            self.show_seg()
 
     def update(self, event=None):
         self.currSlide = self.slides[self.get_slide_index()]
@@ -1370,13 +1385,26 @@ class RegionPicker(Page):
         self.target_nav_combo.config(
             values=[i+1 for i in range(self.currSlide.numTargets)]
         )
-
+        self.rois = [int(float(s)) for s in self.region_tree.get_checked()]
         self.show_seg()
 
     def show_seg(self):
         self.slice_viewer.axes[0].cla()
-        self.slice_viewer.axes[0].imshow(self.currTarget.get_img(seg="visualign"))
-        # TODO: show regions selected
+        seg_img = self.currTarget.get_img(seg="visualign")
+        seg = self.currTarget.seg_visualign
+        data_regions = np.zeros_like(seg)
+        for roi in self.rois: data_regions += (seg==roi).astype(int)
+        data_regions = np.multiply(data_regions, seg)
+        self.slice_viewer.axes[0].imshow(ski.color.label2rgb(
+            data_regions,
+            seg_img, 
+            bg_label=0,
+            bg_color=None,
+            saturation=1,
+            alpha=.7,
+            image_alpha=1,
+            colors=self.region_colors
+        ))
         self.slice_viewer.update()
     
     def on_move(self, event):
@@ -1385,10 +1413,21 @@ class RegionPicker(Page):
             id = self.currTarget.seg_visualign[y,x]
             region_df = self.atlases['names']
             name = region_df.loc[region_df.id==id].index[0]
-            print(name)
             self.slice_viewer.axes[0].set_title(name)
             self.slice_viewer.update()
-
+        
+    def on_click(self, event=None):
+        if event.inaxes:
+            x,y = int(event.xdata), int(event.ydata)
+            id = float(self.currTarget.seg_visualign[y,x])
+            if self.region_tree.tag_has("checked", id):
+                self.region_tree._uncheck_descendant(id)
+                self.region_tree._uncheck_ancestor(id)
+            else:
+                self.region_tree._check_ancestor(id)
+                self.region_tree._check_descendant(id)
+            self.update()
+            
     def get_slide_index(self):
         return self.curr_slide_var.get()-1
     
@@ -1400,6 +1439,29 @@ class RegionPicker(Page):
 
     def done(self):
         super().done()
+
+    class ModifiedCheckboxTreeView(ttkwidgets.CheckboxTreeview):
+
+        def __init__(self, master=None, **kw):
+            super().__init__(master, **kw)
+
+        def get_checked(self):
+            """Overloading """
+            checked = []
+
+            def get_checked_children(item):
+                if not self.tag_has("unchecked", item):
+                    ch = self.get_children(item)
+                    if self.tag_has("checked", item):
+                        checked.append(item)
+                    if ch:
+                        for c in ch:
+                            get_checked_children(c)
+
+            ch = self.get_children("")
+            for c in ch:
+                get_checked_children(c)
+            return checked
 
 class Boundary_Generator(Page):
 

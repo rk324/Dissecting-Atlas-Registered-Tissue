@@ -37,25 +37,6 @@ class Page(tk.Frame, ABC):
     @abstractmethod
     def show_widgets(self): pass
 
-    # nested class for matplotlib figures in tkinter gui
-    class TkFigure(Figure):
-
-        def __init__(self, master, num_rows=1, num_cols=1, toolbar=False):
-            super().__init__()
-            self.canvas = FigureCanvasTkAgg(self, master)
-            self.subplots(num_rows, num_cols)
-        
-            if toolbar:
-                self.toolbar = NavigationToolbar2Tk(self.canvas, master)
-                self.toolbar.update()
-            
-        def get_widget(self):
-            return self.canvas.get_tk_widget()
-
-        def update(self):
-            self.canvas.draw_idle()
-            self.canvas.flush_events()
-
     def activate(self):
         self.pack(expand=True, fill=tk.BOTH)
         self.show_widgets()
@@ -291,7 +272,7 @@ class SlideProcessor(Page):
 
         # slide viewer
         self.slides_frame = tk.Frame(self)
-        self.slide_viewer = self.TkFigure(self.slides_frame, toolbar=True)
+        self.slide_viewer = TkFigure(self.slides_frame, toolbar=True)
         self.slide_viewer.update()
 
     def show_widgets(self):
@@ -551,7 +532,7 @@ class TargetProcessor(Page):
         )
 
         self.figure_frame = tk.Frame(self.slice_frame)
-        self.slice_viewer = self.TkFigure(self.figure_frame, num_cols=2, toolbar=True)
+        self.slice_viewer = TkFigure(self.figure_frame, num_cols=2, toolbar=True)
         self.click_event = self.slice_viewer.canvas.mpl_connect('button_press_event', self.on_click)
 
         self.rotation_frame = tk.Frame(self.slice_frame)
@@ -1026,12 +1007,8 @@ class STalignRunner(Page):
             value=0
         )
 
-        self.show_results_btn = ttk.Button(
-            master=self,
-            command=self.show_results,
-            text="Show Results"
-        )
-        self.results_frame = tk.Frame(self)
+        self.results_viewer = tk.Frame(self)
+        self.create_result_viewer()
 
     def show_widgets(self):
         self.info_label.pack()
@@ -1145,34 +1122,83 @@ class STalignRunner(Page):
 
         self.info_label.config(text="Done!")
         self.progress_bar.pack_forget()
-        self.show_results_btn.pack()
+        self.show_results()
         self.update()
+
+    def create_result_viewer(self):
+        # for showing results after running stalign
+        self.menu_frame = tk.Frame(self.results_viewer)
+        self.slice_frame = tk.Frame(self.results_viewer)
+
+        self.slide_nav_label = ttk.Label(self.menu_frame, text="Slide: ")
+        self.curr_slide_var = tk.IntVar(master=self.menu_frame, value='1')
+        self.slide_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[],
+            state='readonly',
+            textvariable=self.curr_slide_var,
+        )
+        self.slide_nav_combo.bind('<<ComboboxSelected>>', self.switch_slides)
+
+        self.target_nav_label = ttk.Label(self.menu_frame, text="Target: ")
+        self.curr_target_var = tk.IntVar(master=self.menu_frame, value='1')
+        self.target_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[],
+            state='readonly',
+            textvariable=self.curr_target_var,
+        )
+        self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
+
+        self.slice_viewer = TkFigure(self.slice_frame, toolbar=True)
+
+    def switch_slides(self, event=None):
+        self.curr_target_var.set(1)
+        self.update_result_viewer()
+    
+    def update_result_viewer(self, event=None):
+        self.currSlide = self.slides[self.get_slide_index()]
+        self.currTarget = self.currSlide.targets[self.get_target_index()]
+        self.target_nav_combo.config(
+            values=[i+1 for i in range(self.currSlide.numTargets)]
+        )
+        self.show_seg()
+
+    def show_seg(self):
+        self.slice_viewer.axes[0].cla()
+        seg_img = self.currTarget.get_img(seg="stalign")
+        self.slice_viewer.axes[0].imshow(seg_img)
+        self.slice_viewer.update()
 
     def show_results(self):
         # TODO: reconfigure results viewer to show one slice at a time with the dropdowns to navigate
-        numRows = len(self.slides)
-        numCols = 0
-        for sn,slide in enumerate(self.slides):
-            if slide.numTargets > numCols: 
-                numCols = slide.numTargets 
+        self.currSlide = None
+        self.currTarget = None
+        self.update_result_viewer()
 
-            for tn, target in enumerate(slide.targets):
-                wrapper = tk.Frame(self.results_frame)
-                fig = self.TkFigure(wrapper)
-                ax = fig.axes
-                ax[0].imshow(target.get_img())
-            
-                fig.update()
-                wrapper.grid(
-                    sticky='nsew',
-                    row=sn,
-                    column=tn
-                )
-                fig.get_widget().pack(expand=True,fill=tk.BOTH)
+        self.slide_nav_combo.config(
+            values=[i+1 for i in range(len(self.slides))]
+        )
+
+        self.results_viewer.pack(expand=True, fill=tk.BOTH)
+        self.results_viewer.grid_rowconfigure(1, weight=1)
+        self.results_viewer.grid_columnconfigure(0, weight=1)
+        self.menu_frame.grid(row=0, column=0, sticky='nsew')
+        self.slice_frame.grid(row=1, column=0, sticky='nsew')
+
+        self.slide_nav_label.pack(side=tk.LEFT)
+        self.slide_nav_combo.pack(side=tk.LEFT)
         
-        self.results_frame.pack(expand=True, fill=tk.BOTH)
-        self.results_frame.rowconfigure(list(range(numRows)), weight=1, uniform='rows')
-        self.results_frame.columnconfigure(list(range(numCols)), weight=1, uniform='cols')
+        self.target_nav_combo.pack(side=tk.RIGHT)
+        self.target_nav_label.pack(side=tk.RIGHT)
+
+        self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
+    
+    def get_slide_index(self):
+        return self.curr_slide_var.get()-1
+    
+    def get_target_index(self):
+        return self.curr_target_var.get()-1
 
     def done(self):
         super().done()
@@ -1336,7 +1362,7 @@ class RegionPicker(Page):
         )
         self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
 
-        self.slice_viewer = self.TkFigure(self.slice_frame, toolbar=True)
+        self.slice_viewer = TkFigure(self.slice_frame, toolbar=True)
         self.slice_viewer.canvas.mpl_connect('motion_notify_event', self.on_move)
         self.slice_viewer.canvas.mpl_connect('button_press_event', self.on_click)
 

@@ -1,6 +1,12 @@
 import torch
 import STalign
 import numpy as np
+import matplotlib as mpl
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
+NavigationToolbar2Tk)
+import tkinter as tk
+from tkinter import ttk
 
 # Modified version of STalign.LDDMM_3D_to_slice
 def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
@@ -188,3 +194,21 @@ def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
         'WA': WA.clone().detach(),
         'Xs': Xs.clone().detach()
     }
+
+class TkFigure(Figure):
+
+    def __init__(self, master, num_rows=1, num_cols=1, toolbar=False):
+        super().__init__()
+        self.canvas = FigureCanvasTkAgg(self, master)
+        self.subplots(num_rows, num_cols)
+    
+        if toolbar:
+            self.toolbar = NavigationToolbar2Tk(self.canvas, master)
+            self.toolbar.update()
+        
+    def get_widget(self):
+        return self.canvas.get_tk_widget()
+
+    def update(self):
+        self.canvas.draw_idle()
+        self.canvas.flush_events()

@@ -439,13 +439,6 @@ class SlideProcessor(Page):
         self.slice_selector.clear()
         self.show_slide()
 
-    def isFloat(self, str):
-        try:
-            float(str)
-            return True
-        except ValueError:
-            return False
-
     def get_index(self):
         return self.curr_slide_var.get()-1
 
@@ -818,6 +811,7 @@ class TargetProcessor(Page):
 
     def update_buttons(self):
         #TODO: make save parameters button only active if changes to save
+        #TODO: add options to save stalign params to slice, slide, or all
 
         canRemove = self.currTarget.num_landmarks > 0
         canAdd = len(self.new_points[0]) == 2 and len(self.new_points[1]) == 2
@@ -964,7 +958,7 @@ class STalignRunner(Page):
         time_sec = 3*totalIterations # ~3 sec/iteration
         time_str = STalignRunner.seconds_to_string(time_sec)
 
-        label_txt = f'Estimated Duration: {time_str}' #TODO
+        label_txt = f'Estimated Duration: {time_str}'
         self.info_label.config(text=label_txt)
 
     # converts number of seconds to a human readable string
@@ -1148,7 +1142,7 @@ class STalignRunner(Page):
             state='readonly',
             textvariable=self.curr_target_var,
         )
-        self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
+        self.target_nav_combo.bind('<<ComboboxSelected>>', self.update_result_viewer)
 
         self.slice_viewer = TkFigure(self.slice_frame, toolbar=True)
 
@@ -1171,7 +1165,6 @@ class STalignRunner(Page):
         self.slice_viewer.update()
 
     def show_results(self):
-        # TODO: reconfigure results viewer to show one slice at a time with the dropdowns to navigate
         self.currSlide = None
         self.currTarget = None
         self.update_result_viewer()
@@ -1282,6 +1275,7 @@ class VisuAlignRunner(Page):
         os.system(cmd)
         
     def done(self):
+        #TODO: handle if visualign adjustment not used (no exported files)
         regions_nutil = pd.read_json(r'resources/Rainbow 2017.json')
         for sn,slide in enumerate(self.slides):
             for ti,t in enumerate(slide.targets):
@@ -1437,8 +1431,7 @@ class RegionPicker(Page):
         if event.inaxes:
             x,y = int(event.xdata), int(event.ydata)
             id = self.currTarget.seg_visualign[y,x]
-            region_df = self.atlases['names']
-            name = region_df.loc[region_df.id==id].index[0]
+            name = self.get_region_name(id)
             self.slice_viewer.axes[0].set_title(name)
             self.slice_viewer.update()
         
@@ -1459,11 +1452,34 @@ class RegionPicker(Page):
     
     def get_target_index(self):
         return self.curr_target_var.get()-1
+    
+    def get_region_name(self, id):
+        region_df = self.atlases['names']
+        return region_df.loc[region_df.id==id].index[0]
 
     def cancel(self):
         super().cancel()
 
     def done(self):
+        for slide in self.slides:
+            for target in slide.targets:
+                for roi in self.rois:
+                    roi_name = self.get_region_name(roi)
+                    pts = np.argwhere(target.seg_visualign==roi)
+                    if pts.shape[0] == 0: continue # skip if no points found
+                
+                    _,labels = dbscan(pts, eps=2, min_samples=5, metric='manhattan')
+                    for l in set(labels):
+                        if l == -1: continue # these points dont belong to any clusters
+                        cluster = pts[labels==l]
+                        shape_name = f'{roi_name}_{l}'
+
+                        hull = shapely.concave_hull(shapely.MultiPoint(cluster), 0.1) # get hull for cluster
+                        
+                        # only hulls defined as polygons can actually be cut out, other hulls will not be shown
+                        if hull.geom_type == 'Polygon':
+                            bound = shapely.get_coordinates(hull)
+                            target.region_boundaries[shape_name] = bound
         super().done()
 
     class ModifiedCheckboxTreeView(ttkwidgets.CheckboxTreeview):
@@ -1489,260 +1505,75 @@ class RegionPicker(Page):
                 get_checked_children(c)
             return checked
 
-class Boundary_Generator(Page):
+class Exporter(Page):
 
-    def __init__(self, prev):
+    def __init__(self, master, slides, atlases):
+        super().__init__(master, slides, atlases)
+        self.header = "Exporting Boundaries."
 
-        super().__init__(prev.master)
-
-        self.header = ''''''
-
-        self.atlas = prev.atlas
-        self.target = prev.target
-        self.transform = prev.transform
-
-        # read allen_ontology and store id to region name matches in namesdict
-        ontology_name = 'Data\\allen_ontology.csv'
-        O = pd.read_csv(ontology_name)
-
-        self.namesdict = {}
-        self.namesdict[0] = 'bg'
-        for i,n in zip(O['id'],O['acronym']):
-            self.namesdict[i] = n
-
-        # get transformed annotation
-        self.transform_atlas()
-
-        self.region_list = np.delete(np.unique(self.region_graph), 0) # create list of regions found
-
-        # create dictionary of all regions in region_graph , excluding 0 (bg) and pair it with a display state
-        # 0 = off, 1 = on
-        self.region_disp_dict = {} 
-
-        self.get_boundaries() # get boundaries of each region
-
-        # show target w regions overlayed and calibration point selection 
-        self.create_figure(1,1)
-        self.calibration_pts = []
-        self.canvas.mpl_connect('button_press_event', self.onclick)
-        self.canvas.mpl_connect('key_press_event',self.onpress)
-        self.update()
-
-        # list all regions in region_disp_dict with checkboxes to toggle
-        self.region_picker_frame = tk.Frame(self.frame)
-        self.create_region_picker()
-
-        
-
-        self.canvas.get_tk_widget().grid(row=0, column=0)
-        self.toolbar_frame.grid(row=1, column=0)
-        self.region_picker_frame.grid(row=0, column=1)
-    
-    def transform_atlas(self):
-        A = self.transform['A']
-        v = self.transform['v']
-        xv = self.transform['xv']
-        Xs = self.transform['Xs']
-
-        vol = self.atlas.labels
-        xL = self.atlas.pix_loc
-        xJ = self.target.pix_loc
-        print(f'xJ: {xJ}')
-
-        # next chose points to sample on
-        res = 10.0
-        XJ = np.stack(np.meshgrid(np.zeros(1),xJ[0],xJ[1],indexing='ij'),-1)
-
-        tform = STalign.build_transform3D(xv,v,A,direction='b',XJ=torch.tensor(XJ,device=A.device))
-
-        AphiL = STalign.interp3D(
-                xL,
-                torch.tensor(vol[None].astype(np.float64),dtype=torch.float64,device=tform.device),
-                tform.permute(-1,0,1,2),
-                mode='nearest',)[0,0].cpu().int()
-
-        self.region_graph = AphiL.numpy()
-    
-    def get_boundaries(self):
-        self.boundaries = {}
-
-        for region_id in self.region_list:
-            region_name = self.namesdict[region_id]
-            pts = np.fliplr(np.argwhere(self.region_graph==region_id)) # get all pts where region is marked
-            
-            cores,labels = dbscan(pts, eps=5, min_samples=1, metric='manhattan')
-
-            for l in set(labels):
-                if l == -1: continue
-                cluster = pts[labels==l]
-
-                hull = shapely.concave_hull(shapely.MultiPoint(cluster), 0.01) # get hull for cluster
-                
-                # only hulls defined as polygons can actually be cut out, other hulls will not be shown
-                if hull.geom_type == 'Polygon':
-                    new_region_name = f'{region_name}_{l}'
-                    self.boundaries[new_region_name] = hull # add coordinates of hull to list
-                    self.region_disp_dict[new_region_name] = tk.IntVar(value=1) # add it to the display dictionary
-
-    def create_region_picker(self):
-        checkbox_canvas = tk.Canvas(self.region_picker_frame, height=self.canvas.get_width_height()[1])
-        
-        # add scrollbar and configure
-        scrollbar = ttk.Scrollbar(self.region_picker_frame, orient='vertical', 
-                                  command=checkbox_canvas.yview)
-        checkbox_canvas.config(yscrollcommand=scrollbar.set)
-        
-        # create scrollable frame for checkboxes within canvas
-        checkbox_frame = tk.Frame(checkbox_canvas)
-        checkbox_frame.bind(
-            '<Configure>',
-            lambda e: checkbox_canvas.config(scrollregion=checkbox_canvas.bbox("all"))
+    def create_widgets(self):
+        # menu
+        self.menu_frame = tk.Frame(self)
+        self.toggle_all_btn = ttk.Button(
+            master=self.menu_frame,
+            text='',
+            command = self.toggle_select
         )
-        checkbox_canvas.create_window((0,0), anchor='nw', 
-                                      window=checkbox_frame)
+        self.export_btn = ttk.Button(
+            master=self.menu_frame,
+            text="Export",
+            command=self.export
+        )
+
+        self.slide_nav_label = ttk.Label(self.menu_frame, text="Slide: ")
+        self.curr_slide_var = tk.IntVar(master=self.menu_frame, value='1')
+        self.slide_nav_combo = ttk.Combobox(
+            master=self.menu_frame,
+            values=[],
+            state='readonly',
+            textvariable=self.curr_slide_var,
+        )
+        self.slide_nav_combo.bind('<<ComboboxSelected>>', self.update)
+
+        # slide viewer
+        self.slides_frame = tk.Frame(self)
+        self.slide_viewer = TkFigure(self.slides_frame, toolbar=True)
+        self.slide_viewer.update()
+
+    def show_widgets(self):
         
-        # Add checkbuttons for regions
-        for region in self.region_disp_dict.keys():
-            btn = ttk.Checkbutton(checkbox_frame, text=region, 
-                                  variable=self.region_disp_dict[region], 
-                                  command=self.update)
-            btn.pack(fill='x') # forces left-justify
-        
-        # resize canvas to match scroll frame width
-        checkbox_frame.update()
-        checkbox_canvas.config(width=checkbox_frame.winfo_width())
+        self.update() # update buttons, slideviewer, stalign params
 
-        # binding scrolling to application
-        def MouseHandler(event):
-            scroll = 0
-            if event.num==5 or event.delta < 0:
-                scroll = -1
-            elif event.num==4 or event.delta > 0:
-                scroll = 1
-            if event.delta % 120 == 0: scroll *= -1 # windows is flipped
-            checkbox_canvas.yview_scroll(scroll, 'units')
+        self.grid_rowconfigure(1, weight=1)
 
-        checkbox_frame.bind_all('<MouseWheel>', MouseHandler )
-        checkbox_frame.bind_all('<Button-4>', MouseHandler )
-        checkbox_frame.bind_all('<Button-5>', MouseHandler )
+        # show menu
+        self.menu_frame.grid(row=0, column=0, columnspan=2, sticky='nsew')
+        self.slide_nav_combo.config(
+            values=[i+1 for i in range(len(self.slides))]
+        )
+        self.slide_nav_combo.pack(side=tk.RIGHT)
+        self.slide_nav_label.pack(side=tk.RIGHT)
 
-        # Clear and Select All Buttons
-        toggle_all_frame = ttk.Frame(self.region_picker_frame)
-        clear_all_btn = ttk.Button(toggle_all_frame, text='Clear All', command=self.clear_all)
-        select_all_btn = ttk.Button(toggle_all_frame, text='Select All', command=self.select_all)
-        
-        # Display everything
-        clear_all_btn.pack(side='left')
-        select_all_btn.pack(side='left')
-        toggle_all_frame.pack(side='bottom')
+        self.toggle_all_btn.pack(side=tk.LEFT)
+        self.export_btn.pack(side=tk.LEFT)
 
-        scrollbar.pack(side='right', fill='y')
-        checkbox_canvas.pack(side='left', fill='both')
+        # show slide viewer
+        self.slides_frame.grid(row=1, column=0, sticky='nsew')
+        self.slide_viewer.get_widget().pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
-    def update(self):
-        self.fig.axes[0].cla()
-        self.fig.axes[0].imshow(self.target.get_img())
-        #ski.transform.resize(np.pad(self.target.get_img(), ((234,),(394,))), [235.8032112, 330.80955089]))
-        # TODO: ACTUALLY IMPLEMENT THE ADAPTIVE SIZING AND GET RID OF THIS ^^^
-        print(self.region_graph.shape)
-        print(self.target.get_img().shape)
-        for region in self.region_disp_dict.items():
-            bound = shapely.get_coordinates(self.boundaries[region[0]])
-
-            if region[1].get() == 1:
-                self.fig.axes[0].plot(bound[:,0], bound[:,1], 'r-', lw=.75)
-        
-        if len(self.calibration_pts):
-            self.fig.axes[0].scatter(np.array(self.calibration_pts)[:,0], 
-                                     np.array(self.calibration_pts)[:,1], 
-                                     color='white', s=2)
-        self.canvas.draw()
+    def update(self, event=None):
+        print("updating!")
     
-    def onclick(self, event):
-        if event.xdata == None: return # clicked outside of axes
-        ix, iy = int(event.xdata), int(event.ydata) # get x and y data of pt
-        msg = 'calibration point'
-        
-        # update axis to clear out uncomitted pts
-        self.update()
+    def export(self, event=None):
+        print("exporting")
 
-        if event.button == 1: # left click means add point at mouse location
-            self.fig.axes[0].scatter([ix],[iy], color='red', s=2)
-            self.new_pt = [ix, iy]
-            msg = f'{msg} added at [x,y]=[{ix},{iy}]'
-        elif event.button == 3: # right click means remove previously created point
-            if self.new_pt == []: return
-            msg = f'{msg} removed at [x,y]={self.new_pt}'
-            self.new_pt = []
-        
-        print(msg)
-        self.canvas.draw()
+    def toggle_select(self, event=None):
+        print("toggling select all/none")
 
-    def onpress(self, event):
-        if event.key == 'enter': # enter key used to commit selected points to points list
-
-            if not len(self.new_pt): # if missing a point, throw error
-                print("ERROR: attempted calibration point with no point selected!")
-                return
-
-            # add new points to list, notify user, and clear out new points list
-            self.calibration_pts.append(self.new_pt)
-            print(f"Added {self.new_pt} to points list")
-            self.new_pt = []
-            self.update()
-        
-        if event.key == 'backspace': # backspace key used to remove recently committed point
-            if len(self.calibration_pts) == 0: return # if no points to remove, simply return
-            print(f'Removed {self.calibration_pts[-1]}') # user msg
-            
-            # remove last pair of poins
-            self.calibration_pts.pop(-1)
-            self.update() # refresh both axes
-
-    def clear_all(self):
-        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(0)
-        self.update()
-
-    def select_all(self):
-        for key in self.region_disp_dict.keys(): self.region_disp_dict[key].set(1)
-        self.update()
-
-    def next(self):
-        filename = tk.filedialog.asksaveasfilename(defaultextension='xml', filetypes=[('xml files','.xml')])
-        with open(filename, 'w') as file:
-            self.write_to_xml(file)
-        self.deactivate()
-
-    def write_to_xml(self, f):
-
-        f.write("<ImageData>\n")
-        f.write("<GlobalCoordinates>1</GlobalCoordinates>\n")
-
-        if len(self.calibration_pts) != 3: raise Exception("Error: three calibration points needed!")
-        for i,pt in enumerate(self.calibration_pts):
-            f.write(f"<X_CalibrationPoint_{i+1}>{pt[0]}</X_CalibrationPoint_{i+1}>\n")
-            f.write(f"<Y_CalibrationPoint_{i+1}>{pt[1]}</Y_CalibrationPoint_{i+1}>\n")
-        
-        shapes = []
-        for shape, disp in self.region_disp_dict.items():
-            if disp.get() == 1: shapes.append(shape)
-
-        f.write(f"<ShapeCount>{len(shapes)}</ShapeCount>\n")
-
-        for i,shape in enumerate(shapes):
-            f.write(f"<Shape_{i+1}>\n")
-            self.write_shape_to_xml(shape,f)
-            f.write(f"</Shape_{i+1}>\n")
-
-        f.write("</ImageData>")
-            
-    def write_shape_to_xml(self, shape_name, f):
-        points = shapely.get_coordinates(self.boundaries[shape_name])
-        f.write(f"<PointCount>{len(points)+1}</PointCount>\n")
-
-        for i in range(len(points)):
-            f.write(f"<X_{i+1}>{points[i][0]}</X_{i+1}>\n")
-            f.write(f"<Y_{i+1}>{points[i][1]}</Y_{i+1}>\n")  
-
+    def done(self):
+        super().done()
+    
+    def cancel(self):
+        super().cancel()
 
     

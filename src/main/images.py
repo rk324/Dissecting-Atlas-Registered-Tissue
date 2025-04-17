@@ -178,6 +178,8 @@ class Target(Image):
         self.seg_stalign = None
         self.seg_visualign = None
 
+        self.region_boundaries = {}
+
     def load_img(self, raw_img_data, pix_dim, ds_factor=1):
         """
         Target implementation of load_img() saves original, downscaled, and 

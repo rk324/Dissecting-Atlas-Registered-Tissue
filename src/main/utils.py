@@ -204,7 +204,7 @@ class TkFigure(Figure):
     
         if toolbar:
             self.toolbar = NavigationToolbar2Tk(self.canvas, master)
-            self.toolbar.update()
+            self.toolbar.update_idletasks()
         
     def get_widget(self):
         return self.canvas.get_tk_widget()

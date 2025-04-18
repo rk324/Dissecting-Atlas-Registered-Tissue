@@ -1637,7 +1637,7 @@ class Exporter(Page):
 
             for ti,t in enumerate(self.currSlide.targets):
                 if self.exported[self.get_index()][ti] > 0: continue
-                self.exported[self.get_index()][ti] *= -1
+                self.exported[self.get_index()][ti] = 2
                 self.write_target_shapes(file, t)
             file.write("</ImageData>")
         self.update()

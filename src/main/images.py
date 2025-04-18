@@ -331,6 +331,7 @@ class Slide(Image):
     def __init__(self, filename):
         super().__init__()
         self.load_img(filename)
+        self.filename = filename
         self.targets: list[Target] = []
         self.numTargets = 0
 

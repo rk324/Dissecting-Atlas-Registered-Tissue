@@ -1656,7 +1656,16 @@ class Exporter(Page):
 
     def toggle_select(self, event=None):
         # TODO complete
-        print("toggling select all/none")
+        currSlide_exported = self.exported[self.get_index()]
+        has_neg = False # boolean whether currSlide_exported contains a value < 0
+        for export_status in currSlide_exported:
+            if export_status < 0: 
+                has_neg = True
+                break
+        
+        for i in range(len(currSlide_exported)):
+            if currSlide_exported[i] < 0 or not has_neg: currSlide_exported[i] *= -1
+        self.update()
 
     def get_index(self):
         return self.curr_slide_var.get()-1

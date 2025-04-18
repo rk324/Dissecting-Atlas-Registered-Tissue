@@ -27,7 +27,8 @@ class App(tk.Tk):
             TargetProcessor,
             STalignRunner,
             VisuAlignRunner,
-            RegionPicker
+            RegionPicker,
+            Exporter
         ])
         self.pages: list[Page] = [page(self.main_window, self.slides, self.atlases) for page in page_list] # initalize each page in here with self.main_window as parent
         self.page_index = 0

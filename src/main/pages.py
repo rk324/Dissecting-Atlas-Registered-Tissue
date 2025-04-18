@@ -1655,7 +1655,6 @@ class Exporter(Page):
             file.write(f'</Shape_{i+1}>\n')
 
     def toggle_select(self, event=None):
-        # TODO complete
         currSlide_exported = self.exported[self.get_index()]
         has_neg = False # boolean whether currSlide_exported contains a value < 0
         for export_status in currSlide_exported:

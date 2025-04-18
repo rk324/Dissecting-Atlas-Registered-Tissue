@@ -1617,11 +1617,6 @@ class Exporter(Page):
                     
 
     def export(self, event=None):
-        print("exporting")
-        #TODO: actual export functionality
-        # TODO: create file
-        # TODO: write calibration points
-            
         # reorders them so that first point is top left, second is 
         cp_sorted = self.currSlide.calibration_points.copy()
         cp_sorted.sort()
@@ -1660,6 +1655,7 @@ class Exporter(Page):
             file.write(f'</Shape_{i+1}>\n')
 
     def toggle_select(self, event=None):
+        # TODO complete
         print("toggling select all/none")
 
     def get_index(self):

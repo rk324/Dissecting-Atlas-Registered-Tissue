@@ -1510,6 +1510,17 @@ class Exporter(Page):
     def __init__(self, master, slides, atlases):
         super().__init__(master, slides, atlases)
         self.header = "Exporting Boundaries."
+        self.currSlide = None
+        self.exported = []
+        self.numOutputs = []
+
+    def activate(self):
+        self.slide_nav_combo.config(
+            values=[i+1 for i in range(len(self.slides))]
+        )
+        self.exported = [[1 for t in slide.targets] for slide in self.slides] # 1 for not exported, 2 for exported, negative for current export group
+        self.numOutputs = [0 for slide in self.slides]
+        super().activate()
 
     def create_widgets(self):
         # menu
@@ -1522,7 +1533,8 @@ class Exporter(Page):
         self.export_btn = ttk.Button(
             master=self.menu_frame,
             text="Export",
-            command=self.export
+            command=self.export,
+            state='disabled'
         )
 
         self.slide_nav_label = ttk.Label(self.menu_frame, text="Slide: ")
@@ -1538,37 +1550,120 @@ class Exporter(Page):
         # slide viewer
         self.slides_frame = tk.Frame(self)
         self.slide_viewer = TkFigure(self.slides_frame, toolbar=True)
-        self.slide_viewer.update()
+        self.slide_viewer.canvas.mpl_connect('button_press_event', self.on_click)
 
     def show_widgets(self):
         
         self.update() # update buttons, slideviewer, stalign params
 
         self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
         # show menu
         self.menu_frame.grid(row=0, column=0, columnspan=2, sticky='nsew')
-        self.slide_nav_combo.config(
-            values=[i+1 for i in range(len(self.slides))]
-        )
         self.slide_nav_combo.pack(side=tk.RIGHT)
         self.slide_nav_label.pack(side=tk.RIGHT)
 
         self.toggle_all_btn.pack(side=tk.LEFT)
-        self.export_btn.pack(side=tk.LEFT)
+        self.export_btn.pack(side=tk.TOP)
 
         # show slide viewer
         self.slides_frame.grid(row=1, column=0, sticky='nsew')
         self.slide_viewer.get_widget().pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
     def update(self, event=None):
-        print("updating!")
+        self.currSlide = self.slides[self.get_index()]
+        self.slide_viewer.axes[0].cla() # clear and show new slide image
+        self.update_buttons() # update buttons
+        self.show_slide()
+
+    def update_buttons(self):
+        self.toggle_all_btn.config(text="Select All")
+        self.export_btn.config(state='disabled')
+        for export_status in self.exported[self.get_index()]:
+            if export_status < 0: 
+                self.toggle_all_btn.config(text="Unselect All")
+                self.export_btn.config(state='active')
+                return
+        
+    def show_slide(self):
+        self.slide_viewer.axes[0].imshow(self.currSlide.get_img())
+        for i,target in enumerate(self.currSlide.targets):
+            edgecolor = NEW_COLOR
+            if self.exported[self.get_index()][i] < 0: edgecolor = REMOVABLE_COLOR
+            elif self.exported[self.get_index()][i] == 2: edgecolor = COMMITTED_COLOR
+            self.slide_viewer.axes[0].add_patch(
+                mpl.patches.Rectangle(
+                    (target.x_offset, target.y_offset),
+                    target.img_original.shape[1], 
+                    target.img_original.shape[0],
+                    edgecolor=edgecolor,
+                    facecolor='none', 
+                    lw=3
+                )
+            )
+        self.slide_viewer.update()
     
+    def on_click(self, event=None):
+        if event.inaxes is None: return
+        x,y = int(event.xdata), int(event.ydata)
+        if event.button == 1:
+            for i,target in enumerate(self.currSlide.targets):
+                if (target.x_offset <= x <= target.x_offset + target.img_original.shape[1] and 
+                    target.y_offset <= y <= target.y_offset + target.img_original.shape[0]):
+                    self.exported[self.get_index()][i] *= -1
+                    self.update()
+                    return
+                    
+
     def export(self, event=None):
         print("exporting")
+        #TODO: actual export functionality
+        # TODO: create file
+        # TODO: write calibration points
+            
+        # reorders them so that first point is top left, second is 
+        cp_sorted = self.currSlide.calibration_points.copy()
+        cp_sorted.sort()
+        cp_sorted[1:] = sorted(cp_sorted[1:], key=lambda a:a[1])
+
+        slide_index = self.get_index()
+        output_filename = f'{os.path.splitext(self.currSlide.filename)[0]}_output_{self.numOutputs[slide_index]}.xml'
+        self.numOutputs[slide_index] += 1
+        with open(output_filename,'w') as file:
+            file.write("<ImageData>\n")
+            file.write("<GlobalCoordinates>1</GlobalCoordinates>\n")
+            
+            for i,pt in enumerate(cp_sorted):
+                file.write(f"<X_CalibrationPoint_{i+1}>{pt[0]}</X_CalibrationPoint_{i+1}>\n")
+                file.write(f"<Y_CalibrationPoint_{i+1}>{pt[1]}</Y_CalibrationPoint_{i+1}>\n")
+            
+            file.write(f"<ShapeCount>{sum([len(t.region_boundaries) for t in self.currSlide.targets])}</ShapeCount>\n")
+
+            for ti,t in enumerate(self.currSlide.targets):
+                if self.exported[self.get_index()][ti] > 0: continue
+                self.exported[self.get_index()][ti] *= -1
+                self.write_target_shapes(file, t)
+            file.write("</ImageData>")
+        self.update()
+    
+    def write_target_shapes(self, file, target):
+        for i,(name,shape) in enumerate(target.region_boundaries.items()):
+            file.write(f'<Shape_{i+1}>\n')
+            file.write(f'<PointCount>{len(shape)+1}</PointCount>\n')
+            file.write(f'<TransferID>{name}</TransferID>\n')
+
+            for j in range(len(shape)+1):
+                file.write(f'<X_{j+1}>{shape[j%len(shape)][1]+target.x_offset}</X_{j+1}>\n')
+                file.write(f'<Y_{j+1}>{shape[j%len(shape)][0]+target.y_offset}</Y_{j+1}>\n')
+            
+            file.write(f'</Shape_{i+1}>\n')
 
     def toggle_select(self, event=None):
         print("toggling select all/none")
+
+    def get_index(self):
+        return self.curr_slide_var.get()-1
 
     def done(self):
         super().done()

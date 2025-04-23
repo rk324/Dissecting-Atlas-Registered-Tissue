@@ -141,7 +141,7 @@ class Starter(Page):
         # load images for downscaled version
         pix_dim_full = self.atlases[FSR].pix_dim
 
-        downscale_factor = tuple([max(1, 50/dim) for dim in pix_dim_full])
+        downscale_factor = tuple([int(max(1, 50/dim)) for dim in pix_dim_full])
         self.atlases[DSR].load_img(
             img=self.atlases[FSR].img, 
             pix_dim=self.atlases[FSR].pix_dim, 

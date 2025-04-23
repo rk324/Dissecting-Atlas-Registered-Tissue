@@ -9,6 +9,7 @@ import PIL
 import shapely
 import os
 import STalign
+import math
 
 from constants import DEFAULT_STALIGN_PARAMS
 
@@ -91,7 +92,7 @@ class Atlas(Image):
         #setting pixdim in microns
         if img.header['xyzt_units'] < 1 or img.header['xyzt_units'] > 3:
             raise Exception("Error: atlas not well formatted")
-        pix_multi = 1000**(3-img.header['xyzt_units'])
+        pix_multi = math.pow(1000, (3-img.header['xyzt_units']))
         pix_dim = np.roll(img.header['pixdim'][1:4],2)*pix_multi
         return img_data, pix_dim
     

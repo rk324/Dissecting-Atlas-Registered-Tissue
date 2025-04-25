@@ -1582,7 +1582,7 @@ class Exporter(Page):
         self.export_btn.config(state='disabled')
         for export_status in self.exported[self.get_index()]:
             if export_status < 0: 
-                self.toggle_all_btn.config(text="Unselect All")
+                self.toggle_all_btn.config(text="Deselect All")
                 self.export_btn.config(state='active')
                 return
         

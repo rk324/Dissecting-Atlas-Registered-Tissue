@@ -1,13 +1,8 @@
-import tkinter as tk
-from tkinter import ttk
-
 import nibabel as nib
 import nrrd
 import numpy as np
 import skimage as ski
-import PIL
 import shapely
-import os
 import STalign
 import math
 

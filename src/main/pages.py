@@ -2,9 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 import ttkwidgets
 import matplotlib as mpl
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
-NavigationToolbar2Tk)
 import os
 import torch
 import shapely
@@ -19,8 +16,6 @@ from constants import *
 from utils import *
 
 from abc import ABC, abstractmethod
-
-import pickle #TODO: remove if not using anymore
 
 class Page(tk.Frame, ABC):
 

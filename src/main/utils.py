@@ -1,12 +1,9 @@
 import torch
 import STalign
 import numpy as np
-import matplotlib as mpl
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
 NavigationToolbar2Tk)
-import tkinter as tk
-from tkinter import ttk
 
 # Modified version of STalign.LDDMM_3D_to_slice
 def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,

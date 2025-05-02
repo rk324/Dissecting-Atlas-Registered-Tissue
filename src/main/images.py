@@ -6,7 +6,7 @@ import shapely
 import STalign
 import math
 
-from constants import DEFAULT_STALIGN_PARAMS
+from constants import DEFAULT_STALIGN_PARAMS, BACKGROUND_PERCENTILE
 
 class Image():
 
@@ -214,7 +214,7 @@ class Target(Image):
         if self.pix_dim is not None:
             self.set_pix_loc()
 
-    def estimate_pix_dim(self, threshold=.1):
+    def estimate_pix_dim(self):
         """
         Estimates **pix_dim** by determining area of tissue in 
         **img_estim** and in **img**. The ratio between these
@@ -224,12 +224,13 @@ class Target(Image):
         """
 
         # contour function returns contour of the tissue
-        def contour (image):
+        def contour (image, threshold=.1):
             contours = ski.measure.find_contours(image, threshold)
             return sorted(contours, key=lambda c: shapely.Polygon(c).area)[-1]
         
         # create contour of in both images
-        contour_target = contour(self.img)
+        estimated_threshold = np.percentile(self.img, BACKGROUND_PERCENTILE)
+        contour_target = contour(self.img, threshold=estimated_threshold)
         contour_atlas = contour(self.img_estim.img)
 
         # get areas of contours

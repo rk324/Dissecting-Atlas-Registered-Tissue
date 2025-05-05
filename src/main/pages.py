@@ -1629,25 +1629,26 @@ class Exporter(Page):
                 file.write(f"<Y_CalibrationPoint_{i+1}>{pt[1]}</Y_CalibrationPoint_{i+1}>\n")
             
             file.write(f"<ShapeCount>{sum([len(t.region_boundaries) for t in self.currSlide.targets])}</ShapeCount>\n")
-
+            numShapesExported = 0
             for ti,t in enumerate(self.currSlide.targets):
                 if self.exported[self.get_index()][ti] > 0: continue
                 self.exported[self.get_index()][ti] = 2
-                self.write_target_shapes(file, t)
+                self.write_target_shapes(file, t, ti, numShapesExported)
+                numShapesExported += len(t.region_boundaries)
             file.write("</ImageData>")
         self.update()
     
-    def write_target_shapes(self, file, target):
+    def write_target_shapes(self, file, target, targetIndex, numShapesExported):
         for i,(name,shape) in enumerate(target.region_boundaries.items()):
-            file.write(f'<Shape_{i+1}>\n')
+            file.write(f'<Shape_{numShapesExported + i + 1}>\n')
             file.write(f'<PointCount>{len(shape)+1}</PointCount>\n')
-            file.write(f'<TransferID>{name}</TransferID>\n')
+            file.write(f'<TransferID>{name}_{targetIndex}</TransferID>\n')
 
             for j in range(len(shape)+1):
                 file.write(f'<X_{j+1}>{shape[j%len(shape)][1]+target.x_offset}</X_{j+1}>\n')
                 file.write(f'<Y_{j+1}>{shape[j%len(shape)][0]+target.y_offset}</Y_{j+1}>\n')
             
-            file.write(f'</Shape_{i+1}>\n')
+            file.write(f'</Shape_{numShapesExported + i + 1}>\n')
 
     def toggle_select(self, event=None):
         currSlide_exported = self.exported[self.get_index()]

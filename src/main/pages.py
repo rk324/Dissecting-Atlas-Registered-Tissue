@@ -1002,6 +1002,7 @@ class STalignRunner(Page):
     def show_widgets(self):
         self.info_label.pack()
         self.start_btn.pack()
+        self.show_result_viewer()
         
     def process_points(self, target):
         if target.num_landmarks > 0:
@@ -1141,6 +1142,20 @@ class STalignRunner(Page):
 
         self.slice_viewer = TkFigure(self.slice_frame, toolbar=True)
 
+    def show_result_viewer(self):
+        self.results_viewer.grid_rowconfigure(1, weight=1)
+        self.results_viewer.grid_columnconfigure(0, weight=1)
+        self.menu_frame.grid(row=0, column=0, sticky='nsew')
+        self.slice_frame.grid(row=1, column=0, sticky='nsew')
+
+        self.slide_nav_label.pack(side=tk.LEFT)
+        self.slide_nav_combo.pack(side=tk.LEFT)
+        
+        self.target_nav_combo.pack(side=tk.RIGHT)
+        self.target_nav_label.pack(side=tk.RIGHT)
+
+        self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
+
     def switch_slides(self, event=None):
         self.curr_target_var.set(1)
         self.update_result_viewer()
@@ -1167,20 +1182,7 @@ class STalignRunner(Page):
         self.slide_nav_combo.config(
             values=[i+1 for i in range(len(self.slides))]
         )
-
         self.results_viewer.pack(expand=True, fill=tk.BOTH)
-        self.results_viewer.grid_rowconfigure(1, weight=1)
-        self.results_viewer.grid_columnconfigure(0, weight=1)
-        self.menu_frame.grid(row=0, column=0, sticky='nsew')
-        self.slice_frame.grid(row=1, column=0, sticky='nsew')
-
-        self.slide_nav_label.pack(side=tk.LEFT)
-        self.slide_nav_combo.pack(side=tk.LEFT)
-        
-        self.target_nav_combo.pack(side=tk.RIGHT)
-        self.target_nav_label.pack(side=tk.RIGHT)
-
-        self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
     
     def get_slide_index(self):
         return self.curr_slide_var.get()-1
@@ -1192,9 +1194,11 @@ class STalignRunner(Page):
         super().done()
     
     def cancel(self):
+        self.results_viewer.pack_forget()
         for slide in self.slides:
             for target in slide.targets:
                 target.transform = None
+                target.seg_stalign = None
         super().cancel()
 
 class VisuAlignRunner(Page):

@@ -1271,7 +1271,7 @@ class VisuAlignRunner(Page):
 
     def run(self):
         print("running visualign")
-        cmd = r"cd VisuAlign-v0_9; bin/java.exe --module qnonlin/visualign.QNonLin"
+        cmd = rf"cd VisuAlign-v0_9 && {os.path.join("bin","java.exe")} --module qnonlin/visualign.QNonLin"
         os.system(cmd)
         
     def done(self):

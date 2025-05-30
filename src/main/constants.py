@@ -12,7 +12,8 @@ DEFAULT_STALIGN_PARAMS = {
             'resolution': 250
         }
 
-ALPHA = 1.25
+ALPHA = 1.5
+BACKGROUND_PERCENTILE = 60
 
 COMMITTED_COLOR = 'lime'
 REMOVABLE_COLOR = 'orange'

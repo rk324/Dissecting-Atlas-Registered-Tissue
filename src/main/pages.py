@@ -2,9 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 import ttkwidgets
 import matplotlib as mpl
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
-NavigationToolbar2Tk)
 import os
 import torch
 import shapely
@@ -19,8 +16,6 @@ from constants import *
 from utils import *
 
 from abc import ABC, abstractmethod
-
-import pickle #TODO: remove if not using anymore
 
 class Page(tk.Frame, ABC):
 
@@ -141,7 +136,7 @@ class Starter(Page):
         # load images for downscaled version
         pix_dim_full = self.atlases[FSR].pix_dim
 
-        downscale_factor = tuple([max(1, 50/dim) for dim in pix_dim_full])
+        downscale_factor = tuple([int(max(1, 50/dim)) for dim in pix_dim_full])
         self.atlases[DSR].load_img(
             img=self.atlases[FSR].img, 
             pix_dim=self.atlases[FSR].pix_dim, 
@@ -1007,6 +1002,7 @@ class STalignRunner(Page):
     def show_widgets(self):
         self.info_label.pack()
         self.start_btn.pack()
+        self.show_result_viewer()
         
     def process_points(self, target):
         if target.num_landmarks > 0:
@@ -1146,6 +1142,20 @@ class STalignRunner(Page):
 
         self.slice_viewer = TkFigure(self.slice_frame, toolbar=True)
 
+    def show_result_viewer(self):
+        self.results_viewer.grid_rowconfigure(1, weight=1)
+        self.results_viewer.grid_columnconfigure(0, weight=1)
+        self.menu_frame.grid(row=0, column=0, sticky='nsew')
+        self.slice_frame.grid(row=1, column=0, sticky='nsew')
+
+        self.slide_nav_label.pack(side=tk.LEFT)
+        self.slide_nav_combo.pack(side=tk.LEFT)
+        
+        self.target_nav_combo.pack(side=tk.RIGHT)
+        self.target_nav_label.pack(side=tk.RIGHT)
+
+        self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
+
     def switch_slides(self, event=None):
         self.curr_target_var.set(1)
         self.update_result_viewer()
@@ -1172,20 +1182,7 @@ class STalignRunner(Page):
         self.slide_nav_combo.config(
             values=[i+1 for i in range(len(self.slides))]
         )
-
         self.results_viewer.pack(expand=True, fill=tk.BOTH)
-        self.results_viewer.grid_rowconfigure(1, weight=1)
-        self.results_viewer.grid_columnconfigure(0, weight=1)
-        self.menu_frame.grid(row=0, column=0, sticky='nsew')
-        self.slice_frame.grid(row=1, column=0, sticky='nsew')
-
-        self.slide_nav_label.pack(side=tk.LEFT)
-        self.slide_nav_combo.pack(side=tk.LEFT)
-        
-        self.target_nav_combo.pack(side=tk.RIGHT)
-        self.target_nav_label.pack(side=tk.RIGHT)
-
-        self.slice_viewer.get_widget().pack(expand=True, fill=tk.BOTH)
     
     def get_slide_index(self):
         return self.curr_slide_var.get()-1
@@ -1197,9 +1194,11 @@ class STalignRunner(Page):
         super().done()
     
     def cancel(self):
+        self.results_viewer.pack_forget()
         for slide in self.slides:
             for target in slide.targets:
                 target.transform = None
+                target.seg_stalign = None
         super().cancel()
 
 class VisuAlignRunner(Page):
@@ -1582,7 +1581,7 @@ class Exporter(Page):
         self.export_btn.config(state='disabled')
         for export_status in self.exported[self.get_index()]:
             if export_status < 0: 
-                self.toggle_all_btn.config(text="Unselect All")
+                self.toggle_all_btn.config(text="Deselect All")
                 self.export_btn.config(state='active')
                 return
         
@@ -1653,7 +1652,11 @@ class Exporter(Page):
                 file.write(f'<X_{j+1}>{shape[j%len(shape)][1]+target.x_offset}</X_{j+1}>\n')
                 file.write(f'<Y_{j+1}>{shape[j%len(shape)][0]+target.y_offset}</Y_{j+1}>\n')
             
+<<<<<<< HEAD
             file.write(f'</Shape_{numShapesExported+i+1}>\n')
+=======
+            file.write(f'</Shape_{numShapesExported + i + 1}>\n')
+>>>>>>> 17235982cb0ac0497e968019464c6c4e150c37e9
 
     def toggle_select(self, event=None):
         currSlide_exported = self.exported[self.get_index()]

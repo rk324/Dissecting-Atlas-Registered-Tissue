@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk
-import os
 from images import Atlas, Slide
 from pages import *
 from constants import *

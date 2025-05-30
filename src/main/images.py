@@ -1,16 +1,12 @@
-import tkinter as tk
-from tkinter import ttk
-
 import nibabel as nib
 import nrrd
 import numpy as np
 import skimage as ski
-import PIL
 import shapely
-import os
 import STalign
+import math
 
-from constants import DEFAULT_STALIGN_PARAMS
+from constants import DEFAULT_STALIGN_PARAMS, BACKGROUND_PERCENTILE
 
 class Image():
 
@@ -91,7 +87,7 @@ class Atlas(Image):
         #setting pixdim in microns
         if img.header['xyzt_units'] < 1 or img.header['xyzt_units'] > 3:
             raise Exception("Error: atlas not well formatted")
-        pix_multi = 1000**(3-img.header['xyzt_units'])
+        pix_multi = math.pow(1000, (3-img.header['xyzt_units']))
         pix_dim = np.roll(img.header['pixdim'][1:4],2)*pix_multi
         return img_data, pix_dim
     
@@ -186,7 +182,11 @@ class Target(Image):
         preprocess images as **img_original**, **img_donwscaled**, and **img**
         respectively. Also sets pix_dim.
         """
-        self.img_original = raw_img_data.copy()
+        if len(raw_img_data.shape) == 3 and raw_img_data.shape[-1] == 4:
+            self.img_original = ski.color.rgba2rgb(raw_img_data)
+        else:
+            self.img_original = raw_img_data.copy()
+
         original_shape = self.img_original.shape
 
         if ds_factor != 1:
@@ -201,11 +201,7 @@ class Target(Image):
             self.img_downscaled = self.img_original.copy()
 
         self.img = self.img_downscaled.copy()
-        if len(original_shape)==3:
-            if original_shape[-1]==3:
-                self.img = ski.color.rgb2gray(self.img)
-            if original_shape[-1]==4:
-                self.img = ski.color.rgba2rgb(self.img)
+        if len(self.img.shape) == 3 and self.img.shape[-1] == 3:
                 self.img = ski.color.rgb2gray(self.img)
 
         # invert colors if less pixels at full intensity than at 0
@@ -218,7 +214,7 @@ class Target(Image):
         if self.pix_dim is not None:
             self.set_pix_loc()
 
-    def estimate_pix_dim(self, threshold=.1):
+    def estimate_pix_dim(self):
         """
         Estimates **pix_dim** by determining area of tissue in 
         **img_estim** and in **img**. The ratio between these
@@ -228,12 +224,13 @@ class Target(Image):
         """
 
         # contour function returns contour of the tissue
-        def contour (image):
+        def contour (image, threshold=.1):
             contours = ski.measure.find_contours(image, threshold)
             return sorted(contours, key=lambda c: shapely.Polygon(c).area)[-1]
         
         # create contour of in both images
-        contour_target = contour(self.img)
+        estimated_threshold = np.percentile(self.img, BACKGROUND_PERCENTILE)
+        contour_target = contour(self.img, threshold=estimated_threshold)
         contour_atlas = contour(self.img_estim.img)
 
         # get areas of contours

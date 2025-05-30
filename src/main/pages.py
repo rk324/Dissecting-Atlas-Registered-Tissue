@@ -1652,11 +1652,7 @@ class Exporter(Page):
                 file.write(f'<X_{j+1}>{shape[j%len(shape)][1]+target.x_offset}</X_{j+1}>\n')
                 file.write(f'<Y_{j+1}>{shape[j%len(shape)][0]+target.y_offset}</Y_{j+1}>\n')
             
-<<<<<<< HEAD
-            file.write(f'</Shape_{numShapesExported+i+1}>\n')
-=======
             file.write(f'</Shape_{numShapesExported + i + 1}>\n')
->>>>>>> 17235982cb0ac0497e968019464c6c4e150c37e9
 
     def toggle_select(self, event=None):
         currSlide_exported = self.exported[self.get_index()]

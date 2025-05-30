@@ -182,7 +182,11 @@ class Target(Image):
         preprocess images as **img_original**, **img_donwscaled**, and **img**
         respectively. Also sets pix_dim.
         """
-        self.img_original = raw_img_data.copy()
+        if len(raw_img_data.shape) == 3 and raw_img_data.shape[-1] == 4:
+            self.img_original = ski.color.rgba2rgb(raw_img_data)
+        else:
+            self.img_original = raw_img_data.copy()
+
         original_shape = self.img_original.shape
 
         if ds_factor != 1:
@@ -197,11 +201,7 @@ class Target(Image):
             self.img_downscaled = self.img_original.copy()
 
         self.img = self.img_downscaled.copy()
-        if len(original_shape)==3:
-            if original_shape[-1]==3:
-                self.img = ski.color.rgb2gray(self.img)
-            if original_shape[-1]==4:
-                self.img = ski.color.rgba2rgb(self.img)
+        if len(self.img.shape) == 3 and self.img.shape[-1] == 3:
                 self.img = ski.color.rgb2gray(self.img)
 
         # invert colors if less pixels at full intensity than at 0

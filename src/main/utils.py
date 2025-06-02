@@ -6,13 +6,12 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
 NavigationToolbar2Tk)
 
 # Modified version of STalign.LDDMM_3D_to_slice
-def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
+def LDDMM_3D_LBFGS(xI,I,xJ,J,a,nt,niter,sigmaM,sigmaR,sigmaP,
+                   device,pointsI=None,pointsJ=None,
                    L=None,T=None,A=None,v=None,xv=None,
-                   a=500.0,p=2.0,expand=1.25,nt=3,niter=5000,
-                   sigmaM=1.0,sigmaB=2.0,sigmaA=5.0,sigmaR=1e8,sigmaP=2e1,
-                   device='cpu',dtype=torch.float64, progress_bar=None):
-
-        
+                   p=2.0,expand=1.25,sigmaB=2.0,sigmaA=5.0,
+                   dtype=torch.float64, progress_bar=None):
+    
     # check initial inputs and convert to torch
     if A is not None:
         # if we specify an A
@@ -96,7 +95,7 @@ def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
         pointsI = torch.tensor(pointsI,device=J.device,dtype=J.dtype)
         pointsJ = torch.tensor(pointsJ,device=J.device,dtype=J.dtype)
 
-    optimizer = torch.optim.Adam([L, T,v], lr=1e-3)#, max_iter=4, line_search_fn="strong_wolfe")
+    optimizer = torch.optim.LBFGS([L, T, v], lr=1e-3)#, max_iter=4, line_search_fn="strong_wolfe")
     def closure():
         optimizer.zero_grad()
         
@@ -132,7 +131,7 @@ def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
             EP = torch.sum((pointsIt - pointsJ)**2)/2.0/sigmaP**2
             E += EP
 
-        E.backward(retain_graph=True)
+        E.backward()
         return E
     
     for it in range(niter):
@@ -174,8 +173,8 @@ def LDDMM_3D_LBGFS(xI,I,xJ,J,pointsI=None,pointsJ=None,
             E += EP
             tosave.append(EP.item())
     
-        E.backward()
-        optimizer.step()
+        #E.backward()
+        optimizer.step(closure)
         Esave.append( tosave )
 
         if progress_bar is not None:

@@ -1040,7 +1040,7 @@ class STalignRunner(Page):
         J = target.img
         J = J[None] / np.mean(np.abs(J))
 
-        transform = LDDMM_3D_LBGFS(
+        transform = LDDMM_3D_LBFGS(
             xI,I,xJ,J,
             T=T,L=L,
             device=device,

@@ -1,10 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['/home/rishi/kebschull/LDM-brain-region-excision/src/main/main.py'],
-    pathex=['/home/rishi/kebschull/LDM-brain-region-excision/src/main'],
+    ['./src/main/main.py'],
+    pathex=['./src/main'],
     binaries=[],
-    datas=[('/home/rishi/kebschull/LDM-brain-region-excision/src/main/constants.py', '.'), ('/home/rishi/kebschull/LDM-brain-region-excision/src/main/images.py', '.'), ('/home/rishi/kebschull/LDM-brain-region-excision/src/main/pages.py', '.'), ('/home/rishi/kebschull/LDM-brain-region-excision/src/main/STalign.py', '.'), ('/home/rishi/kebschull/LDM-brain-region-excision/src/main/utils.py', '.'), ('/home/rishi/kebschull/LDM-brain-region-excision/atlases', 'atlases/'), ('/home/rishi/kebschull/LDM-brain-region-excision/resources', 'resources/'), ('/home/rishi/kebschull/LDM-brain-region-excision/VisuAlign-v0_9', 'VisuAlign-v0_9/')],
+    datas=[('./src/main/constants.py', '.'), ('./src/main/images.py', '.'), ('./src/main/pages.py', '.'), ('./src/main/STalign.py', '.'), ('./src/main/utils.py', '.'), ('./atlases', 'atlases/'), ('./resources', 'resources/'), ('./VisuAlign-v0_9', 'VisuAlign-v0_9/')],
     hiddenimports=['scipy', 'scipy._lib.array_api_compat.numpy.fft', 'jaraco', 'jaraco.text', 'PIL._tkinter_finder','skimage.segmentation'],
     hookspath=[],
     hooksconfig={},

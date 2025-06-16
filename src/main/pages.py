@@ -1191,7 +1191,7 @@ class STalignRunner(Page):
         return self.curr_target_var.get()-1
 
     def done(self):
-        if slide.targets[0].transform is None:
+        if self.slides[0].targets[0].transform is None:
             raise Exception("ERROR! Must Run STalign before advancing")
         super().done()
     

@@ -95,7 +95,7 @@ def LDDMM_3D_LBFGS(xI,I,xJ,J,a,nt,niter,sigmaM,sigmaR,sigmaP,
         pointsI = torch.tensor(pointsI,device=J.device,dtype=J.dtype)
         pointsJ = torch.tensor(pointsJ,device=J.device,dtype=J.dtype)
 
-    optimizer = torch.optim.LBFGS([L, T, v], lr=1e-3)#, max_iter=4, line_search_fn="strong_wolfe")
+    optimizer = torch.optim.Adam([L, T, v], lr=0.1)#, max_iter=5#niter)
     def closure():
         optimizer.zero_grad()
         
@@ -173,13 +173,13 @@ def LDDMM_3D_LBFGS(xI,I,xJ,J,a,nt,niter,sigmaM,sigmaR,sigmaP,
             E += EP
             tosave.append(EP.item())
     
-        #E.backward()
-        optimizer.step(closure)
-        Esave.append( tosave )
-
         if progress_bar is not None:
             progress_bar.step(1)
             progress_bar.update()
+
+        E.backward()
+        optimizer.step()
+        Esave.append( tosave )
 
     return {
         'A': A.clone().detach(), 

@@ -1,4 +1,4 @@
-name: ldm2
+name: dart
 channels:
   - conda-forge
   - defaults

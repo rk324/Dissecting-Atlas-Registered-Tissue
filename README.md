@@ -1,6 +1,6 @@
 <img src="">
 
-`____` aligns cell-stained images to the Allen Brain Atlas to allow for automatic brain region detection and excision with LEICA microdissection software. 
+`DART` aligns cell-stained images to the Allen Brain Atlas to allow for automatic brain region detection and excision with LEICA microdissection software. 
 
 More information regarding the overall approach, methods and validations can be found in our publication:
 <a href="">
@@ -10,13 +10,15 @@ Rishi Koneru, Manjari Anant^
 
 ## Overview
 
-____ enables:
+DART enables:
 - alignment of cell stained slices to a 3D common coordinate framework
-- automatic and manual annotaiton of brain regions
+- automatic and manual annotation of brain regions
 - excision of identified brain regions with LEICA software
 
 
-## Installation & Import
+## Installation
+
+DART is distributed as a pre-compiled Windows binary in a standalone folder that includes all necessary dependencies. To use the software, download and extract the entire folder from the [Google Drive link](https://drive.google.com/drive/folders/1OZ8UNjqNX_7eInwqjmnIVMsgPvRFYCfx?usp=drive_link), then run the `main.exe` file inside—no installation or separate Python environment is required.
 
 ### Installation using pip
 
@@ -48,5 +50,5 @@ To use this tool, you will need provide the following information:
 
 ## Usage
 
-To use `____`, please refer to our [tutorials](https://jef.works/STalign/tutorials.html).
+To use `DART`, please refer to our [tutorial](https://docs.google.com/document/d/1Ch9BTZmZ5squiQciajM1lAMXQOpW5biJrctP5JFD_R4/edit?usp=sharing).
 

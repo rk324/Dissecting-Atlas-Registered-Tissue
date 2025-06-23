@@ -226,7 +226,16 @@ class Target(Image):
         # contour function returns contour of the tissue
         def contour (image, threshold=.1):
             contours = ski.measure.find_contours(image, threshold)
-            return sorted(contours, key=lambda c: shapely.Polygon(c).area)[-1]
+            to_sort = {}
+            for c in contours:
+                try:
+                    a = shapely.Polygon(c).area
+                    to_sort[a] = c
+                except:
+                    continue
+            if len(to_sort) == 0: raise Exception("Error! no shapes found in target.")
+            return sorted(to_sort.items())[-1][1]
+#        sorted(contours, key=lambda c: shapely.Polygon(c).area)[-1]
         
         # create contour of in both images
         estimated_threshold = np.percentile(self.img, BACKGROUND_PERCENTILE)

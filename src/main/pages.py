@@ -20,10 +20,11 @@ from abc import ABC, abstractmethod
 
 class Page(tk.Frame, ABC):
 
-    def __init__(self, master, slides, atlases):
+    def __init__(self, master, project):
         super().__init__(master)
-        self.slides = slides
-        self.atlases = atlases
+        self.project= project
+        self.slides = project['slides']
+        self.atlases = project['atlases']
         self.header = ""
         self.create_widgets()
 
@@ -53,8 +54,8 @@ class Page(tk.Frame, ABC):
 
 class Starter(Page):
 
-    def __init__(self, master, slides, atlases):
-        super().__init__(master, slides, atlases)
+    def __init__(self, master, project):
+        super().__init__(master, project)
         self.header = 'Select samples and atlas'
     
     def create_widgets(self):
@@ -159,16 +160,19 @@ class Starter(Page):
                 new_slide = Slide(curr_path)
                 self.slides.append(new_slide)
         
-        intermediates_folder_name = "DART-" + datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        os.mkdir(os.path.join(path, intermediates_folder_name))
+        interm_fname = "DART-" + datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        os.mkdir(os.path.join(path, interm_fname))
+
+        self.project['slides_folder'] = os.path.abspath(path)
+        self.project['intermediates_folder'] = os.path.join(self.project['slides_folder'], interm_fname)
 
     def cancel(self):
         super().cancel()
 
 class SlideProcessor(Page):
 
-    def __init__(self, master, slides, atlases):
-        super().__init__(master, slides, atlases)
+    def __init__(self, master, project):
+        super().__init__(master, project)
         self.header = "Select slices and calibration points."
         self.currSlide = None
 
@@ -456,8 +460,8 @@ class SlideProcessor(Page):
 
 class TargetProcessor(Page):
 
-    def __init__(self, master, slides, atlases):
-        super().__init__(master, slides, atlases)
+    def __init__(self, master, project):
+        super().__init__(master, project)
         self.header = "Select landmark points and adjust affine."
         self.currSlide = None
         self.currTarget = None
@@ -938,8 +942,8 @@ class TargetProcessor(Page):
 
 class STalignRunner(Page):
 
-    def __init__(self, master, slides, atlases):
-        super().__init__(master, slides, atlases)
+    def __init__(self, master, project):
+        super().__init__(master, project)
         self.header = "Running STalign."
     
     def activate(self):
@@ -1209,9 +1213,11 @@ class STalignRunner(Page):
 
 class VisuAlignRunner(Page):
 
-    def __init__(self, master, slides, atlases):
-        super().__init__(master, slides, atlases)
+    def __init__(self, master, project):
+        super().__init__(master, project)
         self.header = "Running VisuAlign."
+        self.interm_folder = ""
+        self.slice_to_fname = lambda sn, ti: f'slide{sn}_target{ti}'
 
     def activate(self):
         # stack seg_stalign of all targets and pad as necessary to create 3 dimensions np.array
@@ -1224,11 +1230,12 @@ class VisuAlignRunner(Page):
         nifti = nib.Nifti1Image(stack, np.eye(4)) # create nifti obj
         nib.save(nifti, os.path.join("VisuAlign-v0_9//custom_atlas.cutlas//labels.nii.gz"))
 
-        visualign_export_folder = 'EXPORT_VISUALIGN_HERE'
+        self.interm_folder = self.project['intermediates_folder']
+        visualign_export_folder = os.path.join(self.interm_folder,'EXPORT_VISUALIGN_HERE')
         if not os.path.exists(visualign_export_folder):
             os.mkdir(visualign_export_folder)
 
-        with open('CLICK_ME.json','w') as f:
+        with open(os.path.join(self.interm_folder,'CLICK_ME.json'),'w') as f:
             f.write('{')
             f.write('"name":"", ')
             f.write('"target":"custom_atlas.cutlas", ')
@@ -1236,12 +1243,13 @@ class VisuAlignRunner(Page):
             f.write('"slices": [')
             i=0
             for sn,slide in enumerate(self.slides):
-                for ti,t in enumerate(slide.targets): 
-                    ski.io.imsave(f'DELETE_ME_{sn}_{ti}.jpg',t.img_original)
+                for ti,t in enumerate(slide.targets):
+                    filename = self.slice_to_fname(sn, ti)+'.jpg'
+                    ski.io.imsave(os.path.join(self.interm_folder, filename),t.img_original)
                     f.write('{')
                     h = raw_stack[i].shape[0]
                     w = raw_stack[i].shape[1]
-                    f.write(f'"filename": "DELETE_ME_{sn}_{ti}.jpg", ')
+                    f.write(f'"filename": "{filename}", ')
                     f.write(f'"anchoring": [0, {len(raw_stack)-i-1}, {h}, {w}, 0, 0, 0, 0, -{h}], ')
                     f.write(f'"height": {h}, "width": {w}, ')
                     f.write('"nr": 1, "markers": []}')
@@ -1252,10 +1260,8 @@ class VisuAlignRunner(Page):
         super().activate()
 
     def deactivate(self):
-        os.remove('CLICK_ME.json')
+        os.remove(os.path.join(self.interm_folder,'CLICK_ME.json'))
         os.remove('VisuAlign-v0_9/custom_atlas.cutlas/labels.nii.gz')
-        shutil.rmtree("EXPORT_VISUALIGN_HERE")
-        for f in glob.glob('*DELETE_ME*'): os.remove(f)
         super().deactivate()
 
     def create_widgets(self):
@@ -1284,9 +1290,17 @@ class VisuAlignRunner(Page):
         regions_nutil = pd.read_json(r'resources/Rainbow 2017.json')
         for sn,slide in enumerate(self.slides):
             for ti,t in enumerate(slide.targets):
-                visualign_nl_flat_filename = f'EXPORT_VISUALIGN_HERE//DELETE_ME_{sn}_{ti}_nl.flat'
-                with open(visualign_nl_flat_filename, 'rb') as fp:
-                    buffer = fp.read()
+                visualign_nl_flat_filename = os.path.join(self.interm_folder,
+                                                          "EXPORT_VISUALIGN_HERE",
+                                                          self.slice_to_fname(sn,ti)+"_nl.flat")
+                try:
+                    print(f'we are looking for {visualign_nl_flat_filename}')
+                    with open(visualign_nl_flat_filename, 'rb') as fp:
+                        buffer = fp.read()
+                except:
+                    print(f"visualign manual alignment not performed for slice #{sn}, target #{ti}, using stalign semiautomatic alignment")
+                    t.seg_visualign = t.seg_stalign.copy()
+                    continue
                 shape = np.frombuffer(buffer, dtype=np.dtype('>i4'), offset=1, count=2) 
                 data = np.frombuffer(buffer, dtype=np.dtype('>i2'), offset=9)
                 data = data.reshape(shape[::-1])
@@ -1306,8 +1320,8 @@ class VisuAlignRunner(Page):
 
 class RegionPicker(Page):
 
-    def __init__(self, master, slides, atlases):
-        super().__init__(master, slides, atlases)
+    def __init__(self, master, project):
+        super().__init__(master, project)
         self.header = "Selecting ROIs"
         self.currSlide = None
         self.currTarget = None
@@ -1512,8 +1526,8 @@ class RegionPicker(Page):
 
 class Exporter(Page):
 
-    def __init__(self, master, slides, atlases):
-        super().__init__(master, slides, atlases)
+    def __init__(self, master, project):
+        super().__init__(master, project)
         self.header = "Exporting Boundaries."
         self.currSlide = None
         self.exported = []
@@ -1629,8 +1643,10 @@ class Exporter(Page):
 
         slide_index = self.get_index()
         output_filename = f'{os.path.splitext(self.currSlide.filename)[0]}_output_{self.numOutputs[slide_index]}.xml'
+        output_path = os.path.join(self.project['intermediates_folder'], "output", output_filename)
         self.numOutputs[slide_index] += 1
-        with open(output_filename,'w') as file:
+        
+        with open(output_path,'w') as file:
             file.write("<ImageData>\n")
             file.write("<GlobalCoordinates>1</GlobalCoordinates>\n")
             
@@ -1680,5 +1696,3 @@ class Exporter(Page):
     
     def cancel(self):
         super().cancel()
-
-    

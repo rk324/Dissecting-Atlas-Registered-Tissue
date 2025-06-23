@@ -11,8 +11,9 @@ class App(tk.Tk):
         self.create_widgets()
         self.show_widgets()
 
-        self.slides: list[Slide] = []
-        self.atlases = {
+        self.project = {}
+        self.project['slides'] = []
+        self.project['atlases'] = {
             FSR: Atlas(),
             DSR: Atlas(),
             FSL: Atlas(),
@@ -20,6 +21,7 @@ class App(tk.Tk):
             'names': None
         }
 
+        # initalize each page with self.main_window as parent
         page_list: tuple[Page] = tuple([
             Starter, 
             SlideProcessor, 
@@ -29,10 +31,9 @@ class App(tk.Tk):
             RegionPicker,
             Exporter
         ])
-        self.pages: list[Page] = [page(self.main_window, self.slides, self.atlases) for page in page_list] # initalize each page in here with self.main_window as parent
+        self.pages: list[Page] = [page(self.main_window, self.project) for page in page_list]
         self.page_index = 0
         self.update()
-
         self.mainloop()
 
     def create_widgets(self):

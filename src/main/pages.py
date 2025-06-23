@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.cluster import dbscan
 import shutil
 import glob
+from datetime import datetime
 
 from images import *
 from constants import *
@@ -157,6 +158,9 @@ class Starter(Page):
             if os.path.isfile(curr_path):
                 new_slide = Slide(curr_path)
                 self.slides.append(new_slide)
+        
+        intermediates_folder_name = "DART-" + datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        os.mkdir(os.path.join(path, intermediates_folder_name))
 
     def cancel(self):
         super().cancel()

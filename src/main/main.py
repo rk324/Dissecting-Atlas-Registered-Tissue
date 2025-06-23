@@ -89,4 +89,3 @@ class App(tk.Tk):
 
 # Actually run the app
 app = App()
-#app.start()

@@ -160,11 +160,11 @@ class Starter(Page):
                 new_slide = Slide(curr_path)
                 self.slides.append(new_slide)
         
-        interm_fname = "DART-" + datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        os.mkdir(os.path.join(path, interm_fname))
+        folder = "DART-" + datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        os.mkdir(os.path.join(path, folder))
 
-        self.project['slides_folder'] = os.path.abspath(path)
-        self.project['intermediates_folder'] = os.path.join(self.project['slides_folder'], interm_fname)
+        self.project['parent_folder'] = os.path.abspath(path)
+        self.project['folder'] = os.path.join(self.project['parent_folder'], folder)
 
     def cancel(self):
         super().cancel()
@@ -1230,12 +1230,12 @@ class VisuAlignRunner(Page):
         nifti = nib.Nifti1Image(stack, np.eye(4)) # create nifti obj
         nib.save(nifti, os.path.join("VisuAlign-v0_9//custom_atlas.cutlas//labels.nii.gz"))
 
-        self.interm_folder = self.project['intermediates_folder']
-        visualign_export_folder = os.path.join(self.interm_folder,'EXPORT_VISUALIGN_HERE')
+        self.project_folder = self.project['folder']
+        visualign_export_folder = os.path.join(self.project_folder,'EXPORT_VISUALIGN_HERE')
         if not os.path.exists(visualign_export_folder):
             os.mkdir(visualign_export_folder)
 
-        with open(os.path.join(self.interm_folder,'CLICK_ME.json'),'w') as f:
+        with open(os.path.join(self.project_folder,'CLICK_ME.json'),'w') as f:
             f.write('{')
             f.write('"name":"", ')
             f.write('"target":"custom_atlas.cutlas", ')
@@ -1245,7 +1245,7 @@ class VisuAlignRunner(Page):
             for sn,slide in enumerate(self.slides):
                 for ti,t in enumerate(slide.targets):
                     filename = self.slice_to_fname(sn, ti)+'.jpg'
-                    ski.io.imsave(os.path.join(self.interm_folder, filename),t.img_original)
+                    ski.io.imsave(os.path.join(self.project_folder, filename),t.img_original)
                     f.write('{')
                     h = raw_stack[i].shape[0]
                     w = raw_stack[i].shape[1]
@@ -1260,7 +1260,7 @@ class VisuAlignRunner(Page):
         super().activate()
 
     def deactivate(self):
-        os.remove(os.path.join(self.interm_folder,'CLICK_ME.json'))
+        os.remove(os.path.join(self.project_folder,'CLICK_ME.json'))
         os.remove('VisuAlign-v0_9/custom_atlas.cutlas/labels.nii.gz')
         super().deactivate()
 
@@ -1290,7 +1290,7 @@ class VisuAlignRunner(Page):
         regions_nutil = pd.read_json(r'resources/Rainbow 2017.json')
         for sn,slide in enumerate(self.slides):
             for ti,t in enumerate(slide.targets):
-                visualign_nl_flat_filename = os.path.join(self.interm_folder,
+                visualign_nl_flat_filename = os.path.join(self.project_folder,
                                                           "EXPORT_VISUALIGN_HERE",
                                                           self.slice_to_fname(sn,ti)+"_nl.flat")
                 try:
@@ -1643,9 +1643,9 @@ class Exporter(Page):
 
         slide_index = self.get_index()
         output_filename = f'{os.path.splitext(self.currSlide.filename)[0]}_output_{self.numOutputs[slide_index]}.xml'
-        output_path = os.path.join(self.project['intermediates_folder'], "output", output_filename)
+        output_path = os.path.join(self.project['folder'], "output", output_filename)
         self.numOutputs[slide_index] += 1
-        
+
         with open(output_path,'w') as file:
             file.write("<ImageData>\n")
             file.write("<GlobalCoordinates>1</GlobalCoordinates>\n")

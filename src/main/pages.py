@@ -47,9 +47,10 @@ class Page(tk.Frame, ABC):
 
     def __init__(self, master, project):
         super().__init__(master)
-        self.project= project
+        self.project = project
         self.slides = project['slides']
         self.atlases = project['atlases']
+        self.project_folder = project['folder']
         self.header = ""
         self.create_widgets()
 
@@ -1349,8 +1350,6 @@ class VisuAlignRunner(Page):
     def __init__(self, master, project):
         super().__init__(master, project)
         self.header = "Running VisuAlign."
-        self.interm_folder = ""
-        self.slice_to_fname = lambda sn, ti: f'slide{sn}_target{ti}'
 
     def activate(self):
         # stack seg_stalign of all targets and pad as necessary to create 3 dimensions np.array
@@ -1363,7 +1362,6 @@ class VisuAlignRunner(Page):
         nifti = nib.Nifti1Image(stack, np.eye(4)) # create nifti obj
         nib.save(nifti, os.path.join("VisuAlign-v0_9//custom_atlas.cutlas//labels.nii.gz"))
 
-        self.project_folder = self.project['folder']
         visualign_export_folder = os.path.join(self.project_folder,'EXPORT_VISUALIGN_HERE')
         if not os.path.exists(visualign_export_folder):
             os.mkdir(visualign_export_folder)
@@ -1377,7 +1375,7 @@ class VisuAlignRunner(Page):
             i=0
             for sn,slide in enumerate(self.slides):
                 for ti,t in enumerate(slide.targets):
-                    filename = self.slice_to_fname(sn, ti)+'.jpg'
+                    filename = get_filename(sn, ti)+'.jpg'
                     ski.io.imsave(os.path.join(self.project_folder, filename),t.img_original)
                     f.write('{')
                     h = raw_stack[i].shape[0]
@@ -1425,7 +1423,7 @@ class VisuAlignRunner(Page):
             for ti,t in enumerate(slide.targets):
                 visualign_nl_flat_filename = os.path.join(self.project_folder,
                                                           "EXPORT_VISUALIGN_HERE",
-                                                          self.slice_to_fname(sn,ti)+"_nl.flat")
+                                                          get_filename(sn,ti)+"_nl.flat")
                 try:
                     print(f'we are looking for {visualign_nl_flat_filename}')
                     with open(visualign_nl_flat_filename, 'rb') as fp:

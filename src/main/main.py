@@ -20,6 +20,7 @@ class App(tk.Tk):
             DSL: Atlas(),
             'names': None
         }
+        self.project['folder'] = None
 
         # initalize each page with self.main_window as parent
         page_list: tuple[Page] = tuple([

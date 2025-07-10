@@ -9,7 +9,20 @@ import math
 from constants import DEFAULT_STALIGN_PARAMS, BACKGROUND_PERCENTILE
 
 class Image():
+    """
+    Abstract Image class
 
+    Attributes
+    ----------
+    pix_dim : numpy array
+        Dimensions of each pixel in microns
+    pix_loc : list of numpy arrays
+        3D locations of voxels
+    shape : numpy array
+        Image shape
+    img : numpy array
+        Image data
+    """
     def __init__(self):
         self.pix_dim = None
         self.pix_loc = None
@@ -17,33 +30,66 @@ class Image():
         self.img = None
 
     def load_img(self, img):
-        self.img = img
+        """
+        Load image data
+        
+        Parameters
+        ----------
+        img : numpy array
+            Image data
+        """
+        self.img = np.array(img)
         self.shape = self.img.shape
     
     def set_pix_dim(self, pix_dim):
+        """
+        Set ``pix_dim``
+
+        Parameters
+        ----------
+        pix_dim : array-like
+            Pixel dimensions
+        """
         if len(pix_dim) != len(self.shape):
             raise Exception(f"""
                 Error: pix_dim array has {len(pix_dim)} values, but
                 Image instance has {len(self.shape)} dimensions. 
             """)
-        self.pix_dim = pix_dim
+        self.pix_dim = np.array(pix_dim)
 
     def set_pix_loc(self):
+        """
+        Calculate and set ``pix_loc``. ``pix_dim`` must be set first.
+        """
         if self.pix_dim is None: 
             raise Exception("Cannot set pix_loc until pix_dim is set")
         self.pix_loc = [np.arange(n)*d - (n-1)*d/2.0 
                         for n,d in zip(self.shape,self.pix_dim)]
 
-    def get_img(self): 
+    def get_img(self):
+        """
+        Get image data
+
+        Returns
+        -------
+        img : numpy array
+            A copy of image data
+        """ 
         return self.img.copy()
     
     def get_extent(self):
-        return STalign.extent_from_x(self.pix_loc[-2:])
+        """
+        Calculate and return the extent for ``imshow``
+
+        Returns
+        -------
+        extent : tuple
+            (xmin, xmax, ymin, ymax) extent of image
+        """
+        extent = STalign.extent_from_x(self.pix_loc[-2:])
+        return extent
 
 class Atlas(Image):
-    
-    def slice_from_T (self): # approximate slice
-        return int(self.T[0]/self.pix_dim[0] + self.img.shape[0]/2)
 
     def __init__(self):
         super().__init__()
@@ -51,8 +97,8 @@ class Atlas(Image):
     def load_img(self, path: str=None, img=None, pix_dim=None, ds_factor=1, normalize=True):
         """
         Atlas implementation of load_img() reads in image data and pixel 
-        dimension from provided filename or as parameters. Sets **img**, 
-        **pix_dim**, and **shape** properties, and clips and normalizes 
+        dimension from provided filename or as parameters. Sets ``img``, 
+        ``pix_dim``, and ``shape`` properties, and clips and normalizes 
         image data. Can optionally downscale the image using ds_factor
 
         Currently compatible with nrrd and nifti file types
@@ -69,8 +115,10 @@ class Atlas(Image):
         else:
             raise Exception(f'File type of {path} not supported.')
         
+        # downscale
         self.img = ski.transform.downscale_local_mean(self.img, ds_factor)
         self.pix_dim = ds_factor*self.pix_dim
+
         self.shape = self.img.shape
         if normalize:
             self.img = np.clip(self.img, 0, self.img.max()) # clip negative values
@@ -102,36 +150,62 @@ class Atlas(Image):
             self.img[None].astype('float64'), 
             sample_mesh.transpose(3,0,1,2)
             )[0,0,...].numpy()
-        
-    def get_slice_seg(self, quickReturn=True):
-        if quickReturn: 
-            sampler = self.origin_slice_ds
-        else: 
-            sampler = self.origin_slice
-        
-        vol = self.labels
-        xV = self.pix_loc
-        transformed_slice = (self.L@sampler[...,None])[...,0] + self.T
 
-        return STalign.interp3D(xV, vol[None].astype('float64'), 
-                                transformed_slice.transpose(3,0,1,2),
-                                mode='nearest')[0,0,...].numpy()
+class Slide(Image):
 
-    def get_slice_img(self, quickReturn=True):
+    def __init__(self, filename):
+        super().__init__()
+        self.load_img(filename)
+        self.filename = filename
+        self.targets: list[Target] = []
+        self.numTargets = 0
 
-        if quickReturn: 
-            sampler = self.origin_slice_ds
-            vol = self.img_ds
-            xV = self.pix_loc_ds
-        else: 
-            sampler = self.origin_slice
-            vol = self.img
-            xV = self.pix_loc
+        self.calibration_points = []
+        self.numCalibrationPoints = 0
+
+    def load_img(self, filename):
+        self.img = ski.io.imread(filename)
+        self.shape = self.img.shape
         
-        transformed_slice = (self.L@sampler[...,None])[...,0] + self.T
+    def estimate_pix_dim(self):
+        """
+        Estimate ``pix_dim`` for the slide
+        """
+
+        # estimate pix_dim for each target and take the average
+        target_pix_dims = [t.estimate_pix_dim() for t in self.targets]
+        self.pix_dim = np.average(target_pix_dims, axis=0)
+
+        super().set_pix_loc() # update pix_loc
         
-        return STalign.interp3D(xV, vol[None].astype('float64'), 
-                                transformed_slice.transpose(3,0,1,2))[0,0,...].numpy()
+        # set pix_dim of each target to pix_dim of the slide
+        for t in self.targets: 
+            t.pix_dim = self.pix_dim
+            t.set_pix_loc()
+
+    def add_target(self, x, y, data, ds_factor=1):
+        '''
+        Create a Target with ``x``,``y`` coordinates
+        '''
+        new_target = Target(data, self.pix_dim, x, y, ds_factor)
+        self.targets.append(new_target)
+        self.numTargets += 1
+
+    def remove_target(self, index=-1):
+        self.targets.pop(index)
+        self.numTargets -= 1
+
+    def add_calibration_point(self, point):
+        if self.numCalibrationPoints < 3:
+            self.calibration_points.append(point)
+            self.numCalibrationPoints += 1
+        else: raise Exception("Cannot have more than 3 Calibration points")
+
+    def remove_calibration_point(self, index=-1):
+        if self.numCalibrationPoints > 0:
+            self.calibration_points.pop(index)
+            self.numCalibrationPoints -= 1
+        else: raise Exception("No Calibration Points to remove")
 
 class Target(Image): 
 
@@ -331,51 +405,3 @@ class Target(Image):
             self.stalign_params = DEFAULT_STALIGN_PARAMS.copy()
         elif key in self.stalign_params:
             self.stalign_params[key] = val
-
-class Slide(Image):
-
-    def __init__(self, filename):
-        super().__init__()
-        self.load_img(filename)
-        self.filename = filename
-        self.targets: list[Target] = []
-        self.numTargets = 0
-
-        self.calibration_points = []
-        self.numCalibrationPoints = 0
-
-    def load_img(self, filename):
-        self.img = ski.io.imread(filename)
-        self.shape = self.img.shape
-        
-    def estimate_pix_dim(self):
-        target_pix_dims = [t.estimate_pix_dim() for t in self.targets]
-        self.pix_dim = np.average(target_pix_dims, axis=0)
-        super().set_pix_loc()
-        for t in self.targets:
-            t.pix_dim = self.pix_dim
-            t.set_pix_loc()
-
-    def add_target(self, x, y, data, ds_factor=1):
-        '''
-        Creates Target using x,y, and data
-        '''
-        new_target = Target(data, self.pix_dim, x, y, ds_factor)
-        self.targets.append(new_target)
-        self.numTargets += 1
-
-    def remove_target(self, index=-1):
-        self.targets.pop(index)
-        self.numTargets -= 1
-
-    def add_calibration_point(self, point):
-        if self.numCalibrationPoints < 3:
-            self.calibration_points.append(point)
-            self.numCalibrationPoints += 1
-        else: raise Exception("Cannot have more than 3 Calibration points")
-
-    def remove_calibration_point(self, index=-1):
-        if self.numCalibrationPoints > 0:
-            self.calibration_points.pop(index)
-            self.numCalibrationPoints -= 1
-        else: raise Exception("No Calibration Points to remove")

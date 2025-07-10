@@ -19,6 +19,31 @@ from utils import *
 from abc import ABC, abstractmethod
 
 class Page(tk.Frame, ABC):
+    """
+    Abstract base class for all pages in the application.
+    Each page should inherit from this class and implement the abstract methods.
+    
+    
+    Attributes
+    ----------
+        master : tk.Frame
+            The parent window.
+        project : dict 
+            The project data containing slides and atlases.
+        slides : list
+            List of Slide objects.
+        atlases : dict 
+            Dictionary containing atlas information.
+        header : str
+            Header text for the page.
+        
+    Parameters
+    ----------
+        master : tk.Frame 
+            The parent window.
+        project : dict
+            The project data containing slides and atlases.
+    """
 
     def __init__(self, master, project):
         super().__init__(master)
@@ -29,36 +54,95 @@ class Page(tk.Frame, ABC):
         self.create_widgets()
 
     @abstractmethod
-    def create_widgets(self): pass
+    def create_widgets(self): 
+        """
+        Abstract method to create widgets for the page. Each subclass should
+        implement this method to create its own widgets. This method is
+        responsible for initializing and setting up all widgets that will be
+        used on the page. Widgets should be configured here, but not packed or
+        gridded; layout should be handled in show_widgets().
+        """
+        pass
 
     @abstractmethod
-    def show_widgets(self): pass
+    def show_widgets(self): 
+        """
+        Abstract method to show the widgets on the page. Each subclass should
+        implement this method to arrange and display its widgets. This method is
+        responsible for laying out and displaying all widgets that belong to the
+        page, using the preferred geometry manager.
+        """
+        pass
 
     def activate(self):
+        """
+        Activate the page by packing it into the parent frame and displaying its
+        widgets. This method should be called when the page is to be displayed.
+        Subclasses may add extra functionality to this method as needed.
+        """
         self.pack(expand=True, fill=tk.BOTH)
         self.show_widgets()
     
     def deactivate(self):
+        """
+        Deactivate the page by hiding it. This method should be called when the
+        page is no longer needed. It will remove the page from the view, but not
+        destroy it. Subclasses may override this method to add additional
+        cleanup functionality.
+        """
         self.pack_forget()
     
     @abstractmethod
     def done(self):
+        """
+        Abstract method to finalize the page's actions. This method is called
+        when the user presses the "Next" button. The user has completed their
+        actions on the page and is ready to proceed. It should handle any
+        necessary validation or data processing before moving to the next page.
+        This method should also deactivate the page.
+        """
         self.deactivate()
 
     @abstractmethod
     def cancel(self):
+        """
+        Abstract method to cancel the page's actions. This method is called when
+        the user presses the "Previous" button. It should handle any necessary
+        cleanup or state reset before returning to the previous page or exiting
+        the application. This method should also deactivate the page.
+        """
         self.deactivate()
 
     def get_header(self):
+        """
+        Returns the header text for the page.
+
+        Returns
+        -------
+        self.header : str
+            The header text for the page.
+        """
         return self.header
 
 class Starter(Page):
+    """
+    Page for selecting the atlas and slides to process.
+    This page allows the user to choose an atlas and a folder containing
+    sample images. It initializes the atlas and slide information, and
+    sets up the project structure.
+    """
 
     def __init__(self, master, project):
         super().__init__(master, project)
         self.header = 'Select samples and atlas'
     
     def create_widgets(self):
+        """
+        Create widgets for the Starter page. This includes:
+        - Atlas picker: A combobox to select an atlas from available atlases.
+        - Slides picker: An entry field to select a folder containing sample images.
+        - Browse button: A button to open a file dialog for selecting the slides folder.
+        """
         # Atlas Picker
         self.atlas_name = tk.StringVar(master=self, value="Choose Atlas")
         atlases = os.listdir(r'atlases')
@@ -84,6 +168,10 @@ class Starter(Page):
         )
 
     def show_widgets(self):
+        """
+        Show the widgets for the Starter page. This method arranges the widgets
+        in a grid layout and configures their appearance.
+        """
 
         # configure columns
         self.grid_columnconfigure(0)
@@ -98,6 +186,9 @@ class Starter(Page):
         self.browse_button.grid(row=1, column=2)
     
     def select_slides(self):
+        """
+        Open a file dialog to select a folder containing sample images.
+        """
         folder_name = tk.filedialog.askdirectory(
             parent=self, 
             initialdir=os.curdir,
@@ -106,6 +197,12 @@ class Starter(Page):
         self.slides_folder_name.set(folder_name)
     
     def done(self):
+        """
+        Finalize the Starter page's actions. This method checks that the user
+        has selected an atlas and a folder containing sample images. It then
+        loads the atlas information and the slides into the project structure.
+        Raises an exception if the atlas or slides folder is not selected.
+        """
         # check that atlas picker and slides picker are not blank
         if self.atlas_name.get() == 'Choose Atlas': 
             raise Exception('Must select an atlas.')
@@ -118,26 +215,40 @@ class Starter(Page):
 
         # load slides
         if not os.path.exists(self.slides_folder_name.get()): 
-            raise Exception ('Must select a folder containing sample images')
+            raise Exception(
+                'Must select a folder containing sample images'
+            )
         self.load_slides(self.slides_folder_name.get())
 
         super().done()
 
     def load_atlas_info(self, path):
+        """
+        Load atlas information from the specified path. This method searches for
+        the atlas files in the given directory and initializes the atlases
+        with the reference and label images. It also loads the names dictionary
+        for the atlas.
+        
+        Parameters
+        ----------
+        path : str
+            The path to the atlas directory containing the reference and label images.
+        """
         for filename in os.listdir(path):
-                curr_path = os.path.join(path, filename)
-                if 'reference' in filename: 
-                    ref_atlas_filename = curr_path
-                elif 'label' in filename:
-                    lab_atlas_filename = curr_path
-                elif 'names_dict' in filename:
-                    names_dict_filename = curr_path
+            curr_path = os.path.join(path, filename)
+            if 'reference' in filename: 
+                ref_atlas_filename = curr_path
+            elif 'label' in filename:
+                lab_atlas_filename = curr_path
+            elif 'names_dict' in filename:
+                names_dict_filename = curr_path
 
         self.atlases[FSR].load_img(path=ref_atlas_filename)
         self.atlases[FSL].load_img(path=lab_atlas_filename, normalize=False)
-        # load images for downscaled version
-        pix_dim_full = self.atlases[FSR].pix_dim
 
+        # load images for downscaled version, 
+        # which should be at least 50 microns per pixel
+        pix_dim_full = self.atlases[FSR].pix_dim
         downscale_factor = tuple([int(max(1, 50/dim)) for dim in pix_dim_full])
         self.atlases[DSR].load_img(
             img=self.atlases[FSR].img, 
@@ -150,13 +261,30 @@ class Starter(Page):
             ds_factor=downscale_factor,
             normalize=False
         )
-        self.atlases['names'] = pd.read_csv(names_dict_filename, index_col='name')
+        self.atlases['names'] = pd.read_csv(
+            names_dict_filename, 
+            index_col='name'
+        )
         self.atlases['names'].loc['empty','id'] = 0
 
     def load_slides(self, path):
+        """
+        Load slides from the specified path. This method searches for image files
+        in the given directory and initializes Slide objects for each image file.
+        It also creates a new folder for the project based on the current date and
+        time.
+        
+        Parameters
+        ----------
+        path : str
+            The path to the directory containing the sample images.
+        """
         for f in os.listdir(path):
             curr_path = os.path.join(path, f)
-            if os.path.isfile(curr_path):
+            isImage = curr_path.lower().endswith(
+                ('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.gif')
+            )
+            if os.path.isfile(curr_path) and isImage:
                 new_slide = Slide(curr_path)
                 self.slides.append(new_slide)
         
@@ -164,9 +292,14 @@ class Starter(Page):
         os.mkdir(os.path.join(path, folder))
 
         self.project['parent_folder'] = os.path.abspath(path)
-        self.project['folder'] = os.path.join(self.project['parent_folder'], folder)
+        self.project['folder'] = os.path.join(
+            self.project['parent_folder'], folder
+        )
 
     def cancel(self):
+        """
+        Cancel the actions on the Starter page.
+        """
         super().cancel()
 
 class SlideProcessor(Page):

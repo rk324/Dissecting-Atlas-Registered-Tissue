@@ -23,6 +23,7 @@ class Image():
     img : numpy array
         Image data
     """
+    
     def __init__(self):
         self.pix_dim = None
         self.pix_loc = None

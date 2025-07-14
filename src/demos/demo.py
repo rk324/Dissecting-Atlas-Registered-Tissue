@@ -18,14 +18,17 @@ class Demo(tk.Tk):
             text='Done',
             command = self.done
         )
-        self.slides: list[Slide] = []
-        self.atlases = {
+
+        self.project = {}
+        self.project['slides'] = []
+        self.project['atlases'] = {
             FSR: Atlas(),
             DSR: Atlas(),
             FSL: Atlas(),
             DSL: Atlas(),
             'names': None
         }
+        self.project['folder'] = None
 
         self.path_checkpoints = os.path.join("src", "demos", "checkpoints")
 
@@ -33,6 +36,9 @@ class Demo(tk.Tk):
         self.demo_widget = None # in child class, instantiate demo_widget
         self.checkpoint_name = 'post_demo.pkl'
     
+    def createDemoWidget(self, widget_class):
+        self.demo_widget = widget_class(self.widget_frame, self.project)
+
     def run(self):
         self.widget_frame.pack(expand=True, fill=tk.BOTH)
         self.checkpoint_btn.pack()
@@ -47,7 +53,7 @@ class Demo(tk.Tk):
 
     def done(self):
         self.demo_widget.done()
-        data = {"slides": self.slides, "atlases": self.atlases}
+        data = {"slides": self.project['slides'], "atlases": self.project['atlases']}
         with open(os.path.join(self.path_checkpoints, self.checkpoint_name), 'wb') as f:
             pickle.dump(data, f)
         self.destroy()

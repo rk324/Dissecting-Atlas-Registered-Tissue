@@ -6,7 +6,7 @@ class STalignRunnerDemo(Demo):
     def __init__(self):
         super().__init__()
         self.load("post_target_processor.pkl")
-        self.demo_widget = STalignRunner(self.widget_frame, self.slides, self.atlases)
+        self.createDemoWidget(STalignRunner)
         self.checkpoint_name = "post_stalign_runner.pkl"
 
 demo = STalignRunnerDemo()

@@ -1,6 +1,6 @@
 <img src="">
 
-`DART` aligns cell-stained images to the Allen Brain Atlas to allow for automatic brain region detection and excision with LEICA microdissection software. 
+`DART` aligns cell-stained images to the Allen Brain Atlas to allow for automatic brain region detection and excision with LEICA laser microdissection software. 
 
 More information regarding the overall approach, methods and validations can be found in our publication:
 <a href="">
@@ -13,7 +13,7 @@ Rishi Koneru, Manjari Anant^
 DART enables:
 - alignment of cell stained slices to a 3D common coordinate framework
 - automatic and manual annotation of brain regions
-- excision of identified brain regions with LEICA software
+- excision of identified brain regions with LEICA LMD software
 
 
 ## Installation

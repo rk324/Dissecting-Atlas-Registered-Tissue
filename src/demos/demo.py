@@ -15,7 +15,7 @@ class Demo(tk.Tk):
         self.widget_frame = tk.Frame(self)
         self.checkpoint_btn = ttk.Button(
             master=self,
-            text='Done',
+            text='Finish & Save Checkpoint',
             command = self.done
         )
 

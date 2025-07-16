@@ -4,7 +4,7 @@
 
 More information regarding the overall approach, methods and validations can be found in our publication:
 <a href="">
-<b>Title of paper</b>
+<b>DART: Dissecting Atlas-Registered Tissue </b>
 Rishi Koneru, Manjari Anant^
 </a>
 

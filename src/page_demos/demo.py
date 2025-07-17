@@ -48,12 +48,11 @@ class Demo(tk.Tk):
     def load(self, checkpoint):
         with open(os.path.join(self.path_checkpoints, checkpoint), 'rb') as f:
             data = pickle.load(f)
-            self.slides = data['slides']
-            self.atlases = data['atlases']
+            self.project = data
 
     def done(self):
         self.demo_widget.done()
-        data = {"slides": self.project['slides'], "atlases": self.project['atlases']}
+        data = self.project
         with open(os.path.join(self.path_checkpoints, self.checkpoint_name), 'wb') as f:
             pickle.dump(data, f)
         self.destroy()

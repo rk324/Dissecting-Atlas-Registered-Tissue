@@ -214,11 +214,21 @@ class Starter(Page):
         self.load_atlas_info(atlas_folder_name)
 
         # load slides
-        if not os.path.exists(self.slides_folder_name.get()): 
+        path = self.slides_folder_name.get()
+        if not os.path.exists(path): 
             raise Exception(
-                'Must select a folder containing sample images'
+                'Could not find slides folder at the specified path: ' + path
             )
-        self.load_slides(self.slides_folder_name.get())
+        self.load_slides(path)
+
+        # create project folder
+        folder = "DART-" + datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        os.mkdir(os.path.join(path, folder))
+        self.project['parent_folder'] = os.path.abspath(path)
+        self.project['folder'] = os.path.join(
+            self.project['parent_folder'], 
+            folder
+        )
 
         super().done()
 
@@ -289,15 +299,6 @@ class Starter(Page):
                 self.slides.append(new_slide)
         
         # TODO: raise exception if no slides found
-
-        folder = "DART-" + datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        os.mkdir(os.path.join(path, folder))
-
-        self.project['parent_folder'] = os.path.abspath(path)
-        self.project['folder'] = os.path.join(
-            self.project['parent_folder'], 
-            folder
-        )
 
     def cancel(self):
         """

@@ -50,7 +50,6 @@ class Page(tk.Frame, ABC):
         self.project = project
         self.slides = project['slides']
         self.atlases = project['atlases']
-        self.project_folder = project['folder']
         self.header = ""
         self.create_widgets()
 
@@ -294,7 +293,8 @@ class Starter(Page):
 
         self.project['parent_folder'] = os.path.abspath(path)
         self.project['folder'] = os.path.join(
-            self.project['parent_folder'], folder
+            self.project['parent_folder'], 
+            folder
         )
 
     def cancel(self):
@@ -581,11 +581,29 @@ class SlideProcessor(Page):
 
     def done(self):
         # TODO: make the widget reposition to first slide w error and prompt user about error
+        # TODO: if no targets selected, show warning and ask if user wants to use entire image as target, 
+        # ^maybe also have option to just skip this image?
+
         for i,slide in enumerate(self.slides):
+            e = None
             if slide.numTargets < 1: 
-                raise Exception(f"No targets selected for slide #{i+1}")
+                e = Exception(f"No targets selected for slide #{i+1}")
             if slide.numCalibrationPoints != 3:
-                raise Exception(f"You must select exactly three calibration points for each slide")
+                e = Exception(f"Slide #{i+1} must have exactly 3 calibration points, found {slide.numCalibrationPoints}")
+            if e is not None:
+                self.curr_slide_var.set(i+1)
+                self.update()
+                tk.messagebox.showerror(
+                    title="Error",
+                    message=str(e)
+                )
+                raise e
+        
+        # Save targets as images in the project folder
+        for si, slide in enumerate(self.slides):
+            for ti, target in enumerate(slide.targets):
+                filename = get_filename(si, ti)+'.jpg'
+                ski.io.imsave(os.path.join(self.project['folder'], filename),target.img_original)
         super().done()
 
     def cancel(self):
@@ -1362,6 +1380,7 @@ class VisuAlignRunner(Page):
         nifti = nib.Nifti1Image(stack, np.eye(4)) # create nifti obj
         nib.save(nifti, os.path.join("VisuAlign-v0_9//custom_atlas.cutlas//labels.nii.gz"))
 
+        self.project_folder = self.project['folder']
         visualign_export_folder = os.path.join(self.project_folder,'EXPORT_VISUALIGN_HERE')
         if not os.path.exists(visualign_export_folder):
             os.mkdir(visualign_export_folder)
@@ -1376,7 +1395,6 @@ class VisuAlignRunner(Page):
             for sn,slide in enumerate(self.slides):
                 for ti,t in enumerate(slide.targets):
                     filename = get_filename(sn, ti)+'.jpg'
-                    ski.io.imsave(os.path.join(self.project_folder, filename),t.img_original)
                     f.write('{')
                     h = raw_stack[i].shape[0]
                     w = raw_stack[i].shape[1]

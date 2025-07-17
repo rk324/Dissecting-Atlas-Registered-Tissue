@@ -21,6 +21,7 @@ class App(tk.Tk):
             'names': None
         }
         self.project['folder'] = None
+        self.project['stalign_iterations'] = 0
 
         # initalize each page with self.main_window as parent
         page_list: tuple[Page] = tuple([

@@ -775,6 +775,16 @@ class SlideProcessor(Page):
         super().cancel()
 
 class TargetProcessor(Page):
+    """
+    Page for selecting landmark points and adjusting affine transformations.
+    This page allows the user to select landmark points on the atlas and adjust
+    affine transformations based on the selected points. It provides tools for
+    adding, removing, and committing landmark points, as well as adjusting the
+    affine transformations using rotation and translation scales.
+    """
+
+    # TODO: add feature to select between rotation/translation control and landmark annotation mode
+    # during rotation/translation, use low resolution atlas images
 
     def __init__(self, master, project):
         super().__init__(master, project)
@@ -784,25 +794,21 @@ class TargetProcessor(Page):
         self.new_points = [[],[]]
         self.point_size = 4
 
-    def activate(self):
-        atlas = self.atlases[DSR]
-        for slide in self.slides:
-            for target in slide.targets:
-                self.update_img_estim(target)
-                target.img_estim.set_pix_dim(atlas.pix_dim[1:]*ALPHA)
-                target.img_estim.set_pix_loc()
-
-        self.translation_scale.config(
-            from_=self.atlases[DSR].pix_loc[0][0],
-            to_=self.atlases[DSR].pix_loc[0][-1]
-        )
-
-        super().activate()
-
     def create_widgets(self):
+        """
+        Create widgets for the TargetProcessor page. This includes:
+        - Menu frame: Contains controls for slide and target navigation, buttons for
+          removing and committing points, and clearing uncommitted points.
+        - Slice frame: Contains the slice viewer for displaying the atlas images
+          and the rotation and translation controls.
+        - Parameter settings frame: Contains controls for adjusting parameters for
+          automatic alignment, including basic and advanced parameter settings.
+         """
+        
+        # menu frame with slide and target navigation, buttons, and controls
         self.menu_frame = tk.Frame(self)
-        self.slice_frame = tk.Frame(self)
 
+        # slide navigation
         self.slide_nav_label = ttk.Label(self.menu_frame, text="Slide: ")
         self.curr_slide_var = tk.IntVar(master=self.menu_frame, value='1')
         self.slide_nav_combo = ttk.Combobox(
@@ -813,6 +819,7 @@ class TargetProcessor(Page):
         )
         self.slide_nav_combo.bind('<<ComboboxSelected>>', self.switch_slides)
 
+        # target navigation
         self.target_nav_label = ttk.Label(self.menu_frame, text="Target: ")
         self.curr_target_var = tk.IntVar(master=self.menu_frame, value='1')
         self.target_nav_combo = ttk.Combobox(
@@ -823,6 +830,7 @@ class TargetProcessor(Page):
         )
         self.target_nav_combo.bind('<<ComboboxSelected>>', self.update)
 
+        # landmark annotation controls
         self.menu_buttons_frame = tk.Frame(self.menu_frame)
         self.remove_btn = ttk.Button(
             master=self.menu_buttons_frame,
@@ -843,10 +851,15 @@ class TargetProcessor(Page):
             state='disabled'
         )
 
+        # slice frame with viewer and controls
+        self.slice_frame = tk.Frame(self)
+
+        # slice viewer for displaying atlas images
         self.figure_frame = tk.Frame(self.slice_frame)
         self.slice_viewer = TkFigure(self.figure_frame, num_cols=2, toolbar=True)
         self.click_event = self.slice_viewer.canvas.mpl_connect('button_press_event', self.on_click)
 
+        # rotation controls
         self.rotation_frame = tk.Frame(self.slice_frame)
         self.thetas = [tk.IntVar(self.rotation_frame, value=0) for i in range(3)]
         self.x_rotation_scale = ttk.Scale(
@@ -875,6 +888,7 @@ class TargetProcessor(Page):
                                     text=self.thetas[i].get()
                                 ) for i in range(3)]
 
+        # translation controls
         self.translation_frame = tk.Frame(self.slice_frame)
         self.translation = tk.DoubleVar(self.translation_frame, value=0)
         self.translation_scale = ttk.Scale(
@@ -944,7 +958,35 @@ class TargetProcessor(Page):
                 validatecommand=(val_cmd,'%P')
             )
 
+    def activate(self):
+        """
+        Activate the TargetProcessor page. This method sets up the initial state
+        of the page, including the current slide and target. It also updates the
+        atlas images and sets the pixel dimensions for the target images. It
+        configures the translation scale based on the atlas pixel locations.
+        """
+
+        atlas = self.atlases[DSR]
+        for slide in self.slides:
+            for target in slide.targets:
+                self.update_img_estim(target)
+                target.img_estim.set_pix_dim(atlas.pix_dim[1:]*ALPHA)
+                target.img_estim.set_pix_loc()
+
+        self.translation_scale.config(
+            from_=self.atlases[DSR].pix_loc[0][0],
+            to_=self.atlases[DSR].pix_loc[0][-1]
+        )
+
+        super().activate()
+
     def show_widgets(self):
+        """
+        Show the widgets for the TargetProcessor page. This method arranges the
+        widgets in a grid layout and configures their appearance. It sets up the
+        grid for the menu, slice viewer, rotation and translation controls, and
+        parameter settings. It also packs the widgets into their respective frames.
+        """
         
         self.update()
         
@@ -1010,6 +1052,19 @@ class TargetProcessor(Page):
             entry.grid(row=i, column=1, sticky='ew')
 
     def update(self, event=None):
+        """
+        Update the current slide and target based on the selected values in the
+        slide and target navigation comboboxes. This method retrieves the current
+        slide and target based on the selected indices, updates the slide and target
+        navigation comboboxes, and sets the current target's theta values and
+        translation value. It also resets the new points and updates the target
+        and atlas images in the slice viewer.
+        
+        Parameters
+        ----------
+        event : tk.Event, optional
+            The event that triggered the update (default is None).
+        """
         self.currSlide = self.slides[self.get_slide_index()]
         self.slide_nav_combo.config(
             values=[i+1 for i in range(len(self.slides))]
@@ -1045,10 +1100,28 @@ class TargetProcessor(Page):
         self.set_basic()
 
     def switch_slides(self, event=None):
-        self.curr_target_var.set(1)
+        """
+        Switch to the selected slide in the slide navigation combobox. This method
+        retrieves the selected slide index from the combobox, updates the current
+        slide, and updates the target navigation combobox to reflect the targets
+        available for the selected slide. It also resets the new points and updates
+        the target and atlas images in the slice viewer.
+        
+        Parameters
+        ----------
+        event : tk.Event, optional
+            The event that triggered the switch (default is None).
+        """
+        self.curr_target_var.set(1) # reset target index to 1
         self.update()
 
     def show_target(self):
+        """
+        Show the current target image in the slice viewer. This method clears
+        the axes for the target image, sets the title, and displays the target
+        image with the appropriate colormap. It also highlights the new point
+        and the committed and removable landmark points with different colors.
+        """
         # show target image, show landmark points
         self.slice_viewer.axes[0].cla()
         self.slice_viewer.axes[0].set_axis_off()
@@ -1079,6 +1152,19 @@ class TargetProcessor(Page):
         self.slice_viewer.update()
 
     def update_img_estim(self, target):
+        """
+        Update the estimated image for the target based on the current affine
+        transformation parameters. This method retrieves the atlas for the current
+        target, applies the affine transformation to the atlas pixel locations,
+        and transforms the slice image using the target's affine transformation
+        parameters. It then updates the target's estimated image with the transformed
+        slice image.
+        
+        Parameters
+        ----------
+        target : Target
+            The target for which to update the estimated image.
+        """
 
         atlas = self.atlases[DSR]
         
@@ -1091,6 +1177,14 @@ class TargetProcessor(Page):
         target.img_estim.load_img(slice_img)
 
     def show_atlas(self, event=None):
+        """
+        Show the atlas image in the slice viewer. This method clears the axes for
+        the atlas image, sets the title, and displays the atlas image with the
+        appropriate colormap. It also highlights the new point and the committed
+        and removable landmark points with different colors. It updates the affine
+        transformation parameters based on the current rotation and translation
+        values, and applies the affine transformation to the atlas pixel locations.
+        """
         self.slice_viewer.axes[1].cla()
         self.slice_viewer.axes[1].set_title("Atlas")
         self.slice_viewer.axes[1].set_axis_off()
@@ -1129,6 +1223,13 @@ class TargetProcessor(Page):
         self.slice_viewer.update()
 
     def update_buttons(self):
+        """
+        Update the state of the buttons based on the current target's landmarks
+        and the new points selected by the user. This method enables or disables
+        the remove, commit, and clear buttons based on whether there are landmarks
+        to remove, new points to add, or existing points to clear. It also ensures
+        that the buttons are only active when there are changes to save.
+        """
         #TODO: make save parameters button only active if changes to save
         #TODO: add options to save stalign params to slice, slide, or all
 
@@ -1152,6 +1253,12 @@ class TargetProcessor(Page):
             self.clear_btn.config(state='disabled')
 
     def on_click(self, event):
+        """
+        Callback for mouse click events on the slice viewer. This method is called
+        when the user clicks on the slice viewer to select landmark points. It checks
+        if the click is within the axes, retrieves the new point coordinates based on
+        the click position, and updates the new points for the target and atlas images.
+        """
         if event.inaxes is None: return
 
         new_x, new_y = int(event.xdata), int(event.ydata)
@@ -1167,29 +1274,61 @@ class TargetProcessor(Page):
         self.update_buttons()
 
     def remove(self):
+        """
+        Remove the currently selected landmark points from the current target.
+        This method checks if the current target has any landmarks to remove. If
+        there are landmarks, it removes the last landmark point from both the target
+        and atlas images, updates the new points, and refreshes the display.
+        """
         self.currTarget.remove_landmarks()
         self.update()
 
     def commit(self):
+        """
+        Commit the new landmark points to the current target. This method checks if
+        there are new points selected for both the target and atlas images. If there
+        are new points, it adds the new points to the current target's landmarks for
+        both the target and atlas images, clears the new points, and updates the display.
+        """
+
         self.currTarget.add_landmarks(self.new_points[0], self.new_points[1])
         self.new_points = [[],[]]
         self.update()
 
     def clear(self):
+        """
+        Clear the new points selected for the target and atlas images. This method
+        resets the new points to empty lists, updates the display, and refreshes the
+        buttons to reflect the cleared state.
+        """
+
         self.new_points = [[],[]]
         self.update()
     
     def save_params(self):
+        """
+        Save the current parameters for the current target. This method retrieves
+        the parameter values from the advanced entries, updates the current target's
+        parameters with the new values, and sets the basic settings based on the
+        current target's parameters. It also prints a confirmation message indicating
+        that the parameters have been saved.
+        """
         for key, value in self.param_vars.items():
             self.currTarget.set_param(key, float(value.get()))
         self.set_basic()
         # confirm
         print("parameters saved!")
 
-    '''
-    Set advanced settings based on basic settings
-    '''
     def basic_to_advanced(self, event=None):
+        """
+        Convert the basic settings selected in the combobox to advanced parameters.
+        This method retrieves the selected basic setting from the combobox, resets
+        the advanced parameters to their default values, and sets the iterations
+        based on the selected speed setting. It updates the advanced entries with
+        the new values and prints a confirmation message indicating that the parameters
+        have been reset to the defaults.
+        """
+
         # reset params to defaults
         for key, var in self.param_vars.items():
             var.set(DEFAULT_STALIGN_PARAMS[key])
@@ -1207,10 +1346,17 @@ class TargetProcessor(Page):
         else:
             self.param_vars['iterations'].set('1') #TODO: ensure STalign doesn't explod when given 0 iterations
 
-    '''
-    Set basic settings based on current targets's params
-    '''
     def set_basic(self):
+        """
+        Set the basic settings based on the current target's parameters.
+        This method checks the current target's parameters and updates the basic
+        settings combobox to reflect the estimated time for the selected number of
+        iterations. If the parameters do not match the default values, it sets the
+        basic settings to "Advanced settings estimated X" where X is the estimated
+        time based on the number of iterations. If the parameters match the default
+        values, it sets the basic settings to one of the predefined options based on
+        the number of iterations.
+        """
         num_iterations = float(self.param_vars['iterations'].get())
         
         for key, var in self.param_vars.items():
@@ -1228,22 +1374,78 @@ class TargetProcessor(Page):
             self.basic_combo.set(f"Advanced settings estimated {2.5*num_iterations}") 
 
     def done(self):
+        """
+        Finalize the TargetProcessor page's actions. This method uses the atlas
+        image estimation to estimate the pixel dimensions for each target,
+        creates folders for each target, and writes the affine parameters, landmark
+        points, and stalign parameters to text files in the respective target folders.
+        """
+        
         # estimate pixel dimensions
-        for slide in self.slides:
+        for si, slide in enumerate(self.slides):
             slide.estimate_pix_dim()
+            for ti,target in enumerate(slide.targets):
+                folder = os.path.join(
+                    self.project['folder'], 
+                    get_folder(si, ti, self.project)
+                )
+                os.mkdir(folder)
+
+                with open(os.path.join(folder, 'settings.txt'), 'w') as f:
+                    # write affine parameters
+                    f.write("AFFINE\n")
+                    f.write(f"rotations : {target.thetas[0]} {target.thetas[1]} {target.thetas[2]}\n")
+                    f.write(f"translation : {target.T_estim[0]} {target.T_estim[1]} {target.T_estim[2]}\n")
+                    f.write("\n")
+
+                    # write landmark points
+                    f.write("LANDMARKS\n")
+                    f.write("target point: atlas point\n")
+                    for i in range(target.num_landmarks):
+                        target_pt = target.landmarks['target'][i]
+                        atlas_pt = target.landmarks['atlas'][i]
+                        f.write(f"{target_pt[0]} {target_pt[1]} : {atlas_pt[0]} {atlas_pt[1]}\n")
+                    f.write("\n")
+
+                    # write stalign parameters
+                    f.write("PARAMETERS\n")
+                    f.write("parameter : value\n")
+                    for key, value in target.stalign_params.items():
+                        f.write(f"{key} : {value}\n")
+
         super().done()
 
     def cancel(self):
-        # clear affine estimation and landmark points
+        """
+        Cancel the actions on the TargetProcessor page. This method clears the
+        current target's affine estimation and landmark points, resets the parameters,
+        and calls the parent class's cancel method to finalize the page's actions.
+        """
+
+        # clear affine, landmark points, and stalign parameters
         for slide in self.slides:
             for target in slide.targets:
                 target.set_param() # reset params
                 target.thetas = np.array([0, 0, 0])
                 target.T_estim = np.array([0, 0, 0])
+                target.img_estim = Image()
                 for i in range(target.num_landmarks): target.remove_landmarks()
         super().cancel()
     
     def isFloat(self, str):
+        """
+        Check if a string can be converted to a float.
+
+        Parameters
+        ----------
+        str : str
+            The string to check.
+        
+        Returns
+        -------
+        bool
+            True if the string can be converted to a float, False otherwise.
+        """
         try:
             float(str)
             return True
@@ -1251,9 +1453,29 @@ class TargetProcessor(Page):
             return False
 
     def get_slide_index(self):
+        """
+        Get the index of the current slide based on the selected value in the
+        slide navigation combobox. The index is adjusted to be zero-based by
+        subtracting 1 from the selected value.
+        
+        Returns
+        -------
+        index : int
+            The index of the current slide.
+        """
         return self.curr_slide_var.get()-1
     
     def get_target_index(self):
+        """
+        Get the index of the current target based on the selected value in the
+        target navigation combobox. The index is adjusted to be zero-based by 
+        subtracting 1 from the selected value.
+        
+        Returns
+        -------
+        index : int
+            The index of the current target.
+        """
         return self.curr_target_var.get()-1
 
 class STalignRunner(Page):

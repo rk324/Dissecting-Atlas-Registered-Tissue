@@ -421,11 +421,11 @@ class SlideProcessor(Page):
         and selecting slices. If the annotation mode is set to 'point', it activates
         point mode; if set to 'rect', it activates rectangle mode.
         """
+        self.refresh() # update buttons, slideviewer
         if self.annotation_mode.get() == 'point':
             self.activate_point_mode()
         elif self.annotation_mode.get() == 'rect':
             self.activate_rect_mode()
-        self.refresh() # update buttons, slideviewer, stalign params
         super().activate()
 
     def show_widgets(self):
@@ -703,8 +703,8 @@ class SlideProcessor(Page):
         Finalize the SlideProcessor page's actions. This method checks that each slide
         has at least one target and exactly three calibration points. If any slide does
         not meet these criteria, it raises an exception with an error message. It also
-        saves the target images in the project folder and calls the parent class's done
-        method to finalize the page's actions.
+        saves the target coordinates and calibration points in text files, and saves the
+        target images in the project folder.
         
         Raises
         -------
@@ -718,8 +718,20 @@ class SlideProcessor(Page):
             e = None
             if slide.numTargets < 1: 
                 e = Exception(f"No targets selected for slide #{i+1}")
+            
             if slide.numCalibrationPoints != 3:
                 e = Exception(f"Slide #{i+1} must have exactly 3 calibration points, found {slide.numCalibrationPoints}")
+            else:
+                # reorder calibration points so that first point is top left,
+                # second is top right, and third is bottom left
+                slide.calibration_points.sort()
+                slide.calibration_points[1:] = sorted(
+                    slide.calibration_points[1:], 
+                    key=lambda point: point[1]
+                )
+
+            # if there was an error, set the current slide to the one with the error
+            # and show the error message
             if e is not None:
                 self.curr_slide_var.set(i+1)
                 self.refresh()
@@ -728,12 +740,27 @@ class SlideProcessor(Page):
                     message=str(e)
                 )
                 raise e
+
+        # save target coordinates in a text file
+        with open(os.path.join(self.project['folder'], 'target_coordinates.txt'), 'w') as f:
+            f.write("slide#_target# : X Y\n")
+            for si, slide in enumerate(self.slides):
+                for ti, target in enumerate(slide.targets):
+                    f.write(f"{get_filename(si, ti)} : {target.x_offset} {target.y_offset}\n")
+
+        # save calibration points in a text file
+        with open(os.path.join(self.project['folder'], 'calibration_points.txt'), 'w') as f:
+            f.write("slide# : X Y\n")
+            for si, slide in enumerate(self.slides):
+                for point in slide.calibration_points:
+                    f.write(f"{si} : {point[0]} {point[1]}\n")
         
-        # Save targets as images in the project folder
+        # save target images in the project folder
         for si, slide in enumerate(self.slides):
             for ti, target in enumerate(slide.targets):
                 filename = get_filename(si, ti)+'.jpg'
                 ski.io.imsave(os.path.join(self.project['folder'], filename),target.img_original)
+
         super().done()
 
     def cancel(self):
@@ -1892,6 +1919,7 @@ class Exporter(Page):
                 return
         
     def show_slide(self):
+        # TODO: show the shapes being exported
         self.slide_viewer.axes[0].imshow(self.currSlide.get_img())
         for i,target in enumerate(self.currSlide.targets):
             edgecolor = NEW_COLOR
@@ -1922,10 +1950,6 @@ class Exporter(Page):
                     
 
     def export(self, event=None):
-        # reorders them so that first point is top left, second is 
-        cp_sorted = self.currSlide.calibration_points.copy()
-        cp_sorted.sort()
-        cp_sorted[1:] = sorted(cp_sorted[1:], key=lambda a:a[1])
 
         slide_index = self.get_index()
         output_filename = f'{os.path.splitext(self.currSlide.filename)[0]}_output_{self.numOutputs[slide_index]}.xml'

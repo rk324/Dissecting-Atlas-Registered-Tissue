@@ -6,6 +6,7 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
 NavigationToolbar2Tk)
 
 get_filename = lambda slide, target: f'slide{slide}_target{target}'
+get_folder = lambda slide, target, iteration: f'{get_filename(slide, target)}_iteration{iteration}'
 
 # Modified version of STalign.LDDMM_3D_to_slice
 def LDDMM_3D_LBFGS(xI,I,xJ,J,a,nt,niter,sigmaM,sigmaR,sigmaP,

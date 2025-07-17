@@ -1387,7 +1387,7 @@ class TargetProcessor(Page):
             for ti,target in enumerate(slide.targets):
                 folder = os.path.join(
                     self.project['folder'], 
-                    get_folder(si, ti, self.project)
+                    get_folder(si, ti, self.project['stalign_iterations'])
                 )
                 os.mkdir(folder)
 

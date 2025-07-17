@@ -203,6 +203,7 @@ class TkFigure(Figure):
         if toolbar:
             self.toolbar = NavigationToolbar2Tk(self.canvas, master)
             self.toolbar.update_idletasks()
+        # TODO: add functionality to add points/shapes and update with resetting the zoom
         
     def get_widget(self):
         return self.canvas.get_tk_widget()

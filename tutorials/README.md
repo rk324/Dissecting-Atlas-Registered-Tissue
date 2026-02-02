@@ -55,7 +55,8 @@ In the STalign Runner Page (**Figures 5, 6, 7**), STalign is run on the section 
 
 In the VisuAlign Runner page (**Figure 8**), make manual adjustments to the alignment using VisuAlign (**Figure 9**). This enables greater control over the alignment. Since VisuAlign is a separate software, `DART` opens it through the command terminal, when you click **Open VisuAlign**. 
 
-You will find the `CLICK ME` file in the `DART-[datetime]` subfolder with your section images. You can do this by hitting the space bar on a region you wish to move, which should make a cross appear. You can then move the cross around to adjust the local alignment. If you have multiple slices, you can navigate slices with the arrows in the top right corner.  After adjusting the alignment, export the alignment to the EXPORT_VISUALIGN_HERE folder, and close VisuAlign. 
+You will find the `CLICK ME` file in the `DART-[datetime]` subfolder with your section images. You can do this by hitting the space bar while hovering your mouse on a region you wish to move. This will make a cross appear at the pointer location. You can then click and drag the cross around to adjust the local alignment. If you have multiple slices, you can navigate slices with the arrows in the top right corner.  After adjusting the alignment, export the alignment to the EXPORT_VISUALIGN_HERE folder, and close VisuAlign.
+
 ![VisuAlign Runner Page](assets/visualign_runner.png)  
 **Figure 8. VisuAlign Runner Page**
 

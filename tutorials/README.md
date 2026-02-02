@@ -2,7 +2,7 @@
 
 ## Installation
 
-`DART` is distributed as a pre-compiled Windows binary in a standalone folder that includes all necessary dependencies. To use the software, download and extract the entire folder from the [Google Drive link](https://drive.google.com/file/d/1UHvkmNt6kgneh7vLTZS29K53wJkYFOEJ/view?usp=sharing), then run the `main.exe` file inside—no installation or separate Python environment is required.
+See the [Installation Guide](https://github.com/kebschulllab/Dissecting-Atlas-Registered-Tissue/tree/main?tab=readme-ov-file#installation) on the main README for instructions on installing `DART`.
 
 ## Getting Started
 

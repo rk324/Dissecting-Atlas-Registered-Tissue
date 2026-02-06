@@ -48,6 +48,8 @@ dependencies = [
 	"torch"
 ]
 
+[project.urls]
+"Repository" = "https://github.com/kebschulllab/Dissecting-Atlas-Registered-Tissue"
 
 [project.scripts]
 dart = "dart.__main__:main"

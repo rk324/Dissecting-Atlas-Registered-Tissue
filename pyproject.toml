@@ -45,9 +45,7 @@ dependencies = [
     "tornado",
     "ttkwidgets",
     "shapely>=2.0",
-	"torch",
-	"torchvision",
-	"torchaudio",
+	"torch"
 ]
 
 

@@ -52,5 +52,5 @@ dependencies = [
 "Repository" = "https://github.com/kebschulllab/Dissecting-Atlas-Registered-Tissue"
 
 [project.scripts]
-dart = "dart.__main__:main"
+dart-gui = "dart.__main__:main"
 dart-download-atlases = "dart.download_atlases:main"

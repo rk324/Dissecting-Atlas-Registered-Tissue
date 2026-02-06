@@ -132,7 +132,7 @@ class VisuAlignRunner(BasePage):
         to load the results from the exported files.
         """
         print("running visualign")
-        cmd = rf"cd {self.visualign_path} && {os.path.join("bin","java.exe")} --module qnonlin/visualign.QNonLin"
+        cmd = rf"cd {self.visualign_path} && {os.path.join('bin','java.exe')} --module qnonlin/visualign.QNonLin"
         os.system(cmd)
         self.load_results()
     

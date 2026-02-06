@@ -412,7 +412,7 @@ class RegionPicker(BasePage):
         with open(os.path.join(self.project.folder, 'regions.json'), 'w') as f:
             json.dump(self.rois, f)
 
-        well = lambda r,c: f'{chr( ord('A') +r )}{c+1}'
+        well = lambda r,c: f"{chr( ord('A') +r )}{c+1}"
         spread = 2 # how far wells should be spread apart
         for slide in self.slides:
             row = 0

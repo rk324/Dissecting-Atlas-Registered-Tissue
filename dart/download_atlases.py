@@ -76,8 +76,8 @@ def download_atlases():
             print("Downloading atlases.zip.......................................DONE")
         
     # Extract .zip file
+    print("Extracting atlases.zip", end='...')
     with ZipFile(dest_file, 'r') as zip_ref:
-        print("Extracting atlases.zip", end='...')
         zip_ref.extractall(dest_dir)
         print("DONE")
 

@@ -12,11 +12,16 @@ Prior to using `DART`, calibration points must be added to the slide. Although n
 **Figure 1. Cross Fiducial Example**
 
 ## Load the Data
-
-On the `DART` starter page (**Figure 2**), select an atlas from several options with varying resolutions and imaging workups. Atlases comprise three components: a reference atlas that contains the spatial cell density of the organ of interest, a labels atlas that maps each voxel from the reference atlas to an ID corresponding to a specific region in the tissue, and a table containing information about the regions and their hierarchical structure. In addition to selecting an atlas, select the sample images by clicking **Browse** and selecting the folder containing the images. `DART` will load each image in the folder as a separate slide and create a subfolder to store results and intermediate files. The name of the subfolder will follow the format `DART-[datetime]`.
+On the `DART` starter page (**Figure 2**), select a segmentation method and atlases if using DART's in-built segmentation algorithm. Also, select the sample images by clicking **Browse** and selecting the folder containing the images. `DART` will load each image in the folder as a separate slide and create a subfolder to store results and intermediate files. The name of the subfolder will follow the format `DART-[datetime]`.
 
 ![Starter Page](assets/starter.png)  
 **Figure 2. Starter Page**
+
+### Selecting a Segmentation Method
+`DART` has an in-built segmentation algorithm that implements slice to atlas registration using [STalign](https://github.com/JEFworks-Lab/STalign). To use this algorithm, select "DART in-built" in the Segmentation Method dropdown. Alternatively, users may use their own segmentation pipelines by selecting "Other".
+
+### Selecting an Atlas
+Currently, `DART` has 5 atlas options available from varying resolutions and imaging workups. Atlases comprise three components: a reference atlas that contains the spatial cell density of the organ of interest, a labels atlas that maps each voxel from the reference atlas to an ID corresponding to a specific region in the tissue, and a table containing information about the regions and their hierarchical structure.
 
 ## Mark Calibration Points and Select Sections
 

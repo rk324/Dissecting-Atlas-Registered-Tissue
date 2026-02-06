@@ -30,7 +30,8 @@ DART can also be installed by cloning the repository and downloading auxiliary f
 
 1. Clone this repository using `git clone https://github.com/rk324/Dissecting-Atlas-Registered-Tissue.git`
 2. Set up a conda environment by navigating into the repository folder and using `conda env create -f environment.yml`
-3. Download and extract the [atlases folder](https://zenodo.org/records/17849564) and move the result into the repo.
+3. From the repository folder, download the atlases using `python -m dart.download_atlases`
+    - Alternatively, the atlases can be manually downloaded and extracted from the [Zenodo archive](https://zenodo.org/records/17849564). These atlases should be extracted to the folder `dart/dart/atlases`.
     - Note: The `atlases` folder should have 5 subfolders, and each of those should have 3 subfiles titled `label.nrrd`, `reference.nrrd`, and `names_dict.csv`.
 4. To run the software as a user, call `python -m dart` from the root directory of the repository.
 

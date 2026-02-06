@@ -36,7 +36,7 @@ dependencies = [
     "numpy>=2.2.4",
     "nibabel",
     "pynrrd",
-    "scikit-image",
+    "scikit-image>=0.26.0",
     "scikit-learn",
     "pandas",
     "matplotlib",

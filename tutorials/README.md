@@ -32,7 +32,7 @@ On the slide processing page (**Figure 3**), the **Add Calibration Points** tab 
 
 ## Alignment and Segmentation
 
-The following page(s) will depend on your selection of segmentation method from the Starter Page. See the [Segmentation Guide](https://github.com/kebschulllab/Dissecting-Atlas-Registered-Tissue/edit/main/tutorials/SEGMENTATION.md) for more details. If you selected "DART in-built" you will complete two pages that guide you through a semi-automatic registration to the atlat you chose. If you opted to upload your own segmentation, our guide has a section with instructions on doing so. After generating a segmentation, whether through our in-built algorithm or through your own custom pipelines, we provide the option to manually adjust the segmentation in VisuAlign.
+The following page(s) will depend on your selection of segmentation method from the Starter Page. See the [Segmentation Guide](https://github.com/kebschulllab/Dissecting-Atlas-Registered-Tissue/blob/main/tutorials/SEGMENTATION.md) for more details. If you selected "DART in-built" you will complete two pages that guide you through a semi-automatic registration to the atlat you chose. If you opted to upload your own segmentation, our guide has a section with instructions on doing so. After generating a segmentation, whether through our in-built algorithm or through your own custom pipelines, we provide the option to manually adjust the segmentation in VisuAlign.
 
 ## Adjust Segmentation
 

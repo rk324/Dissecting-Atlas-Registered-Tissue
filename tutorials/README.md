@@ -30,35 +30,13 @@ On the slide processing page (**Figure 3**), the **Add Calibration Points** tab 
 ![Slide Processing Page](assets/slide_processor.png)  
 **Figure 3. Slide Processing Page**
 
-## Prepare for STalign
+## Alignment and Segmentation
 
-The Section Processor Page (**Figure 4**) serves three functions: estimation of an affine transformation to map the atlas to the target section, annotation of landmark points, and adjustment of STalign parameters. Use the bottom slider to approximate the section in your 3D atlas that best matches the section. Use the three sliders on the right to adjust the rotation angles of the atlas to more closely match the slice. This is your initial "guess" for the alignment, and even if it's not perfect, it will greatly speed up on converging on a proper alignment.
+The following page(s) will depend on your selection of segmentation method from the Starter Page. See the [Segmentation Guide](https://github.com/kebschulllab/Dissecting-Atlas-Registered-Tissue/edit/main/tutorials/SEGMENTATION.md) for more details. If you selected "DART in-built" you will complete two pages that guide you through a semi-automatic registration to the atlat you chose. If you opted to upload your own segmentation, our guide has a section with instructions on doing so. After generating a segmentation, whether through our in-built algorithm or through your own custom pipelines, we provide the option to manually adjust the segmentation in VisuAlign.
 
-Next, add landmark points by clicking corresponding landmarks on the target section image and the atlas image, then clicking “Add Point” in the top panel. 
+## Adjust Segmentation
 
-Finally, you can tune the parameters of STalign either at a high-level through the dropdown menu or in detail through the text entries. The slower transforms are generally more accurate. You can save these parameters by clicking **Save parameters for slice** in the bottom right. 
-
-If you have multiple slices, you can navigate to the different slices using the **Target** panel on the top right, and initialize an alignment for each one. 
-
-![Section Processor Page](assets/section_processor.png)  
-**Figure 4. Section Processor Page**
-
-## Run STalign and View Results
-
-In the STalign Runner Page (**Figures 5, 6, 7**), STalign is run on the section images when the “Run” button is clicked. Upon completion of STalign, the results are displayed by overlaying the calculated region boundaries over the section image (**Figure 7**). 
-
-![STalign Runner Page](assets/stalign_running.png)  
-**Figure 5. STalign Runner Page**
-
-![STalign Progress Monitor](assets/stalign_status_graphs.png)  
-**Figure 6. STalign Progress Monitor**
-
-![STalign Results Display](assets/stalign_results.png)  
-**Figure 7. STalign Results Display**
-
-## Adjust Alignment
-
-In the VisuAlign Runner page (**Figure 8**), make manual adjustments to the alignment using VisuAlign (**Figure 9**). This enables greater control over the alignment. Since VisuAlign is a separate software, `DART` opens it through the command terminal, when you click **Open VisuAlign**. 
+In the VisuAlign Runner page (**Figure 8**), make manual adjustments to the segmentation using VisuAlign (**Figure 9**). This enables greater control over the region boundaries. Since VisuAlign is a separate software, `DART` opens it through the command terminal, when you click **Open VisuAlign**. 
 
 You will find the `CLICK ME` file in the `DART-[datetime]` subfolder with your section images. You can do this by hitting the space bar while hovering your mouse on a region you wish to move. This will make a cross appear at the pointer location. You can then click and drag the cross around to adjust the local alignment. If you have multiple slices, you can navigate slices with the arrows in the top right corner.  After adjusting the alignment, export the alignment to the EXPORT_VISUALIGN_HERE folder, and close VisuAlign.
 
